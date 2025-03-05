@@ -1,13 +1,19 @@
 import React from "react";
-import { FaUserCircle } from 'react-icons/fa';
+import { FaUserCircle } from "react-icons/fa"; // Иконка профиля
+import { FaBars } from "react-icons/fa"; // Иконка гамбургер-меню
 
-const Header = ({ onProfileClick, onMenuToggle }) => {
+const Header = ({ onProfileClick, onSidebarToggle }) => {
   return (
-    <header className="flex justify-between items-center bg-teal-600 px-6 py-4 text-white text-xl h-20">
-      <button onClick={onMenuToggle} className="text-2xl">Меню</button>
-      <button onClick={onProfileClick} className="text-4xl">
-        <FaUserCircle />
-      </button>
+    <header className="flex justify-between items-center p-4 bg-teal-500 text-white">
+      {/* Кнопка для открытия бокового меню (гамбургер-меню) */}
+      <div className="cursor-pointer" onClick={onSidebarToggle}>
+        <FaBars size={30} />
+      </div>
+
+      {/* Иконка профиля */}
+      <div className="cursor-pointer" onClick={onProfileClick}>
+        <FaUserCircle size={30} />
+      </div>
     </header>
   );
 };

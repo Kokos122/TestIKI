@@ -1,69 +1,52 @@
-import React, { useState, useEffect } from "react";
-import { FaTimes, FaHome, FaUser, FaTasks } from "react-icons/fa";
+import React from "react";
+import { FaTimes } from "react-icons/fa"; // Иконка для закрытия меню
+import { motion } from "framer-motion"; // Импортируем framer-motion
 
-const Sidebar = ({ isOpen, onClose }) => {
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 300); // Длительность анимации
-    }
-  }, [isOpen]);
-
+const Sidebar = ({ onClose, isOpen }) => {
   return (
-    <div
-      className={`fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300 ${
-        isOpen || isAnimating ? "opacity-100 visible" : "opacity-0 invisible"
-      }`}
-      onClick={onClose}
+    <motion.div
+      className="fixed inset-0 bg-black bg-opacity-50"
+      initial={{ opacity: 0 }} // Начальная прозрачность
+      animate={{ opacity: isOpen ? 1 : 0 }} // Плавно изменяем прозрачность
+      exit={{ opacity: 0 }} // Прозрачность при закрытии
+      transition={{ duration: 0.3 }} // Длительность анимации
     >
-      <div
-        className={`bg-white p-6 w-72 h-full flex flex-col shadow-lg rounded-r-3xl transition-all duration-300 ease-in-out transform ${
-          isOpen ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
-        }`}
-        onClick={(e) => e.stopPropagation()}
+      {/* Боковое меню */}
+      <motion.div
+        className="bg-teal-500 w-64 h-full p-6 flex flex-col justify-between"
+        initial={{ x: "-100%" }} // Меню сдвинуто влево
+        animate={{ x: isOpen ? 0 : "-100%" }} // Сдвиг в зависимости от состояния
+        exit={{ x: "-100%" }} // Меню сдвигается влево при закрытии
+        transition={{
+          type: "spring", // Плавность анимации
+          stiffness: 300, // Жесткость
+          damping: 30 // Демпинг
+        }}
       >
-        {/* Кнопка закрытия */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 left-4 w-10 h-10 flex items-center justify-center bg-red-500 text-white rounded-full shadow-md hover:bg-red-700 transition duration-300"
-        >
-          <FaTimes className="text-xl" />
-        </button>
+        {/* Кнопка закрытия меню */}
+        <div className="text-white cursor-pointer" onClick={onClose}>
+          <FaTimes size={30} />
+        </div>
 
-        {/* Навигация */}
-        <ul className="w-full flex flex-col space-y-4 mt-16">
-          <li>
-            <a
-              href="#"
-              className="flex items-center gap-3 py-3 px-5 text-lg text-gray-700 hover:bg-teal-500 hover:text-white rounded-xl transition duration-300"
-            >
-              <FaHome className="text-2xl" />
-              Главная
-            </a>
-          </li>
-          <li>
-            <a
-              href="#"
-              className="flex items-center gap-3 py-3 px-5 text-lg text-gray-700 hover:bg-teal-500 hover:text-white rounded-xl transition duration-300"
-            >
-              <FaTasks className="text-2xl" />
-              Тесты
-            </a>
-          </li>
-          <li>
-            <a
-              href="#"
-              className="flex items-center gap-3 py-3 px-5 text-lg text-gray-700 hover:bg-teal-500 hover:text-white rounded-xl transition duration-300"
-            >
-              <FaUser className="text-2xl" />
-              Мой профиль
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
+        {/* Основное содержимое бокового меню */}
+        <div className="text-white flex-grow mt-10">
+          <ul className="space-y-4">
+            <li className="cursor-pointer">Главная</li>
+            <li className="cursor-pointer">Тесты</li>
+            <li className="cursor-pointer">Истории</li>
+            <li className="cursor-pointer">Популярное</li>
+            <li className="cursor-pointer">Мой профиль</li>
+            <li className="cursor-pointer">Настройки</li>
+            <li className="cursor-pointer">О нас</li>
+          </ul>
+        </div>
+
+        {/* Информация ниже */}
+        <div className="text-white mt-10 text-sm">
+          <p>© 2025 Все права защищены</p>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
