@@ -3,6 +3,7 @@ import Header from "./Header.js";
 import Sidebar from "./Sidebar.js";
 import AuthModal from "./AuthModal.js";
 import HomePage from "./HomePage.js";
+import Footer from "./Footer.js"; 
 
 import { AnimatePresence } from "framer-motion";
 
@@ -15,22 +16,28 @@ const App = () => {
   const handleCloseSidebar = () => setIsSidebarOpen(false);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Навигация */}
       <Header onSidebarToggle={handleSidebarToggle} onProfileClick={handleAuthModalToggle} />
 
-      {/* Боковое меню */}
-      <AnimatePresence>
-        {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={handleCloseSidebar} />}
-      </AnimatePresence>
+      {/* Основное содержимое */}
+      <div className="flex-grow">
+        {/* Боковое меню */}
+        <AnimatePresence>
+          {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={handleCloseSidebar} />}
+        </AnimatePresence>
 
-      {/* Окно авторизации */}
-      <AnimatePresence>
-        {isAuthModalOpen && <AuthModal onClose={handleAuthModalToggle} />}
-      </AnimatePresence>
+        {/* Окно авторизации */}
+        <AnimatePresence>
+          {isAuthModalOpen && <AuthModal onClose={handleAuthModalToggle} />}
+        </AnimatePresence>
 
-      {/* Главная страница с карточками */}
-      <HomePage />
+        {/* Главная страница */}
+        <HomePage />
+      </div>
+
+      {/* Футер */}
+      <Footer />
     </div>
   );
 };

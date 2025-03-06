@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FaGoogle, FaEye, FaEyeSlash } from "react-icons/fa";
 import { SlSocialVkontakte } from "react-icons/sl";
+import { SiTelegram } from "react-icons/si"; // Импортируем иконку Telegram
 import { motion, AnimatePresence } from "framer-motion";
 import axios from 'axios';
 
@@ -14,6 +15,10 @@ const AuthModal = ({ onClose }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState(""); // Для отображения ошибок
+
+  const handleSocialAuth = (provider) => {
+    alert(`Быстрый вход через ${provider} в разработке`);
+  };
 
   const validateEmail = (email) => {
     const re = /^[a-zA-Z0-9._%+-]+@[a-zAZ0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -244,13 +249,47 @@ const AuthModal = ({ onClose }) => {
               >
                 {isRegister ? "Зарегистрироваться" : "Войти"}
               </motion.button>
-              <motion.p
-                className="text-blue-500 text-sm cursor-pointer"
-                onClick={() => setIsRegister(!isRegister)}
+
+              {/* Социальные иконки с анимацией под кнопкой */}
+              <motion.div
+                className="flex justify-center gap-5 mt-3"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ delay: 0.9 }}
+              >
+                <motion.div
+                  className="w-11 h-11 flex justify-center items-center bg-red-500 text-white rounded-full cursor-pointer"
+                  whileHover={{ scale: 1.2 }}
+                  onClick={() => handleSocialAuth("Google")}
+                >
+                  <FaGoogle style={{ fontSize: "1.4rem" }} />
+                </motion.div>
+
+                <motion.div
+                  className="w-11 h-11 flex justify-center items-center bg-blue-600 text-white rounded-full cursor-pointer"
+                  whileHover={{ scale: 1.2 }}
+                  onClick={() => handleSocialAuth("VK")}
+                >
+                  <SlSocialVkontakte style={{ fontSize: "1.6rem", color: "white"  }} />
+                </motion.div>
+
+                <motion.div
+                  className="w-11 h-11 flex justify-center items-center bg-blue-400 text-white rounded-full cursor-pointer"
+                  whileHover={{ scale: 1.2 }}
+                  onClick={() => handleSocialAuth("Telegram")}
+                >
+                  <SiTelegram style={{ fontSize: "1.6rem", color: "white"  }} />
+                </motion.div>
+              </motion.div>
+
+              <motion.p
+                className="text-blue-500 text-sm cursor-pointer mt-6"
+                onClick={() => setIsRegister(!isRegister)}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ delay: 1.2 }}
               >
                 {isRegister ? "Уже есть аккаунт? Войти" : "Нет аккаунта? Зарегистрироваться"}
               </motion.p>
@@ -261,7 +300,7 @@ const AuthModal = ({ onClose }) => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ delay: 1 }}
+                transition={{ delay: 1.3 }}
               >
                 Забыли пароль?
               </motion.p>

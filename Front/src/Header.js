@@ -7,12 +7,12 @@ const Header = ({ onProfileClick, onSidebarToggle }) => {
     <header className="flex justify-between items-center p-4 bg-teal-500 text-white">
       {/* Кнопка для открытия бокового меню (гамбургер-меню) */}
       <div className="cursor-pointer" onClick={onSidebarToggle}>
-        <FaBars size={30} />
+        <FaBars size={35} />
       </div>
 
       {/* Иконка профиля */}
       <div className="cursor-pointer" onClick={onProfileClick}>
-        <FaUserCircle size={30} />
+        <FaUserCircle size={40} />
       </div>
     </header>
   );
