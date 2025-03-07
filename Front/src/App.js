@@ -1,11 +1,13 @@
 import React, { useState } from "react";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
+
 import Header from "./Header.js";
 import Sidebar from "./Sidebar.js";
 import AuthModal from "./AuthModal.js";
 import HomePage from "./HomePage.js";
-import Footer from "./Footer.js"; 
-
-import { AnimatePresence } from "framer-motion";
+import Footer from "./Footer.js";
+import About_Us from "./About_Us.jsx";
 
 const App = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -16,29 +18,34 @@ const App = () => {
   const handleCloseSidebar = () => setIsSidebarOpen(false);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Навигация */}
-      <Header onSidebarToggle={handleSidebarToggle} onProfileClick={handleAuthModalToggle} />
+    <Router>
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        {/* Навигация */}
+        <Header onSidebarToggle={handleSidebarToggle} onProfileClick={handleAuthModalToggle} />
 
-      {/* Основное содержимое */}
-      <div className="flex-grow">
-        {/* Боковое меню */}
-        <AnimatePresence>
-          {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={handleCloseSidebar} />}
-        </AnimatePresence>
+        {/* Основное содержимое */}
+        <div className="flex-grow">
+          {/* Боковое меню */}
+          <AnimatePresence>
+            {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={handleCloseSidebar} />}
+          </AnimatePresence>
 
-        {/* Окно авторизации */}
-        <AnimatePresence>
-          {isAuthModalOpen && <AuthModal onClose={handleAuthModalToggle} />}
-        </AnimatePresence>
+          {/* Окно авторизации */}
+          <AnimatePresence>
+            {isAuthModalOpen && <AuthModal onClose={handleAuthModalToggle} />}
+          </AnimatePresence>
 
-        {/* Главная страница */}
-        <HomePage />
+          {/* Маршрутизация */}
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<About_Us />} />
+          </Routes>
+        </div>
+
+        {/* Футер */}
+        <Footer />
       </div>
-
-      {/* Футер */}
-      <Footer />
-    </div>
+    </Router>
   );
 };
 

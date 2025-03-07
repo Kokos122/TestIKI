@@ -4,7 +4,7 @@ import { FaBars } from "react-icons/fa"; // Иконка гамбургер-ме
 
 const Header = ({ onProfileClick, onSidebarToggle }) => {
   return (
-    <header className="flex justify-between items-center p-4 bg-teal-500 text-white">
+    <header className="flex justify-between items-center p-4 bg-gradient-to-br from-emerald-300 to-emerald-700 text-white"> 
       {/* Кнопка для открытия бокового меню (гамбургер-меню) */}
       <div className="cursor-pointer" onClick={onSidebarToggle}>
         <FaBars size={35} />
