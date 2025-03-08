@@ -3,7 +3,7 @@ import { FaTimes } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 
-const Sidebar = ({ onClose, isOpen }) => {
+const Sidebar = ({ onClose, isOpen, darkMode }) => {
   return (
     <motion.div
       className="fixed inset-0 bg-black bg-opacity-50"
@@ -13,7 +13,11 @@ const Sidebar = ({ onClose, isOpen }) => {
       transition={{ duration: 0.3 }}
     >
       <motion.div
-        className="bg-teal-500 w-64 h-full p-6 flex flex-col justify-between"
+        className={`w-64 h-full p-6 flex flex-col justify-between transition-colors duration-300 ${
+          darkMode
+            ? "bg-gradient-to-br from-slate-900 to-slate-700 text-white"
+            : "bg-gradient-to-br from-teal-500 to-teal-200 text-black"
+        }`}
         initial={{ x: "-100%" }}
         animate={{ x: isOpen ? 0 : "-100%" }}
         exit={{ x: "-100%" }}
@@ -24,25 +28,25 @@ const Sidebar = ({ onClose, isOpen }) => {
         }}
       >
         {/* Кнопка закрытия меню */}
-        <div className="text-white cursor-pointer" onClick={onClose}>
+        <div className="cursor-pointer" onClick={onClose}>
           <FaTimes size={30} />
         </div>
 
         {/* Основное содержимое бокового меню */}
-        <div className="text-white flex-grow mt-10">
+        <div className="flex-grow mt-10">
           <ul className="space-y-4">
             <li>
-              <Link to="/" onClick={onClose} className="cursor-pointer">
+              <Link to="/" onClick={onClose} className="hover:text-gray-400 transition">
                 Главная
               </Link>
             </li>
-            <li className="cursor-pointer">Тесты</li>
-            <li className="cursor-pointer">Истории</li>
-            <li className="cursor-pointer">Популярное</li>
-            <li className="cursor-pointer">Мой профиль</li>
-            <li className="cursor-pointer">Настройки</li>
+            <li className="hover:text-gray-400 transition">Тесты</li>
+            <li className="hover:text-gray-400 transition">Истории</li>
+            <li className="hover:text-gray-400 transition">Популярное</li>
+            <li className="hover:text-gray-400 transition">Мой профиль</li>
+            <li className="hover:text-gray-400 transition">Настройки</li>
             <li>
-              <Link to="/about" onClick={onClose} className="cursor-pointer">
+              <Link to="/about" onClick={onClose} className="hover:text-gray-400 transition">
                 О нас
               </Link>
             </li>
@@ -50,7 +54,7 @@ const Sidebar = ({ onClose, isOpen }) => {
         </div>
 
         {/* Информация ниже */}
-        <div className="text-white mt-10 text-sm">
+        <div className="mt-10 text-sm">
           <p>© 2025 Все права защищены</p>
         </div>
       </motion.div>

@@ -1,19 +1,39 @@
 import React from "react";
-import { FaUserCircle } from "react-icons/fa"; // Иконка профиля
-import { FaBars } from "react-icons/fa"; // Иконка гамбургер-меню
+import { FaUserCircle, FaBars, FaSun, FaMoon } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
-const Header = ({ onProfileClick, onSidebarToggle }) => {
+const Header = ({ onProfileClick, onSidebarToggle, onThemeToggle, darkMode }) => {
+  const headerBg = darkMode
+    ? "bg-gradient-to-br from-slate-700 to-slate-950 text-white"
+    : "bg-gradient-to-br from-teal-200 to-teal-500 text-black";
+
   return (
-    <header className="flex justify-between items-center p-4 bg-gradient-to-br from-emerald-300 to-emerald-700 text-white"> 
-      {/* Кнопка для открытия бокового меню (гамбургер-меню) */}
-      <div className="cursor-pointer" onClick={onSidebarToggle}>
+    <header className={`flex justify-between items-center p-4 transition-colors duration-300 ${headerBg} h-16`}>
+      
+      {/* Боковое меню */}
+      <button onClick={onSidebarToggle} className="cursor-pointer">
         <FaBars size={35} />
-      </div>
+      </button>
+
+      {/* Логотип */}
+      <Link to="/" className="flex items-center mx-auto">
+        <img
+          src={darkMode ? "/images/logo-white.png" : "/images/logo-black.png"}
+          alt="TestIKI Logo"
+          className="h-11 w-auto"
+        />
+      </Link>
+
+      {/* Переключение темы */}
+      <button onClick={onThemeToggle} aria-label="Переключить тему">
+        {darkMode ? <FaMoon size={24} /> : <FaSun size={24} />}
+      </button>
 
       {/* Иконка профиля */}
-      <div className="cursor-pointer" onClick={onProfileClick}>
+      <button onClick={onProfileClick} className="cursor-pointer ml-4">
         <FaUserCircle size={40} />
-      </div>
+      </button>
+
     </header>
   );
 };
