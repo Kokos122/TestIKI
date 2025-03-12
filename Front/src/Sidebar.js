@@ -6,17 +6,17 @@ import { Link } from "react-router-dom";
 const Sidebar = ({ onClose, isOpen, darkMode }) => {
   return (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50"
+      className="fixed inset-0 bg-black bg-opacity-50 z-50"
       initial={{ opacity: 0 }}
       animate={{ opacity: isOpen ? 1 : 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
     >
       <motion.div
-        className={`w-64 h-full p-6 flex flex-col justify-between transition-colors duration-300 ${
+        className={`w-64 h-full rounded-e-2xl p-6 flex flex-col justify-between transition-colors duration-300 ${
           darkMode
             ? "bg-gradient-to-br from-slate-900 to-slate-700 text-white"
-            : "bg-gradient-to-br from-teal-500 to-teal-200 text-black"
+            : "bg-gradient-to-br from-indigo-500 to-indigo-300 text-black"
         }`}
         initial={{ x: "-100%" }}
         animate={{ x: isOpen ? 0 : "-100%" }}
@@ -43,7 +43,12 @@ const Sidebar = ({ onClose, isOpen, darkMode }) => {
             <li className="hover:text-gray-400 transition">Тесты</li>
             <li className="hover:text-gray-400 transition">Истории</li>
             <li className="hover:text-gray-400 transition">Популярное</li>
-            <li className="hover:text-gray-400 transition">Мой профиль</li>
+            <li>
+              <Link to="/profile" onClick={onClose} className="hover:text-gray-400 transition">
+                Мой профиль
+              </Link>
+            </li>
+
             <li className="hover:text-gray-400 transition">Настройки</li>
             <li>
               <Link to="/about" onClick={onClose} className="hover:text-gray-400 transition">

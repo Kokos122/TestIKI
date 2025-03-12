@@ -14,7 +14,7 @@ var DB *gorm.DB
 // Функция подключения к PostgreSQL
 func Connect() {
 	// Настроить свои данные
-	dsn := "host=localhost user=postgres password=QWErty12# dbname=myprojectdb port=5432 sslmode=disable"
+	dsn := "host=localhost user=postgres password=QWErty12# dbname=TestIKI_DB port=5432 sslmode=disable"
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

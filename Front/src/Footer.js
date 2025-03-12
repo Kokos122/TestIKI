@@ -3,11 +3,11 @@ import { FaFacebook, FaTwitter, FaInstagram } from "react-icons/fa";
 
 const Footer = ({ darkMode }) => {
   const footerBg = darkMode
-    ? "bg-gradient-to-br from-slate-700 to-slate-950 text-white"
-    : "bg-gradient-to-br from-teal-200 to-teal-500 text-black text-opacity-80";
+    ? "bg-gradient-to-br from-slate-600 to-slate-950 text-white"
+    : "bg-gradient-to-br from-indigo-300 to-indigo-500 text-black text-opacity-80";
 
   return (
-    <footer className={`py-6 mt-8 transition-colors duration-300 ${footerBg}`}>
+    <footer className={`py-4 mt-8 rounded-t-2xl transition-colors duration-300 ${footerBg}`}>
       <div className="container mx-auto flex flex-col md:flex-row items-center justify-between px-6">
         
         {/* Логотип и текст */}

@@ -7,12 +7,14 @@ import Sidebar from "./Sidebar.js";
 import AuthModal from "./AuthModal.js";
 import HomePage from "./HomePage.js";
 import Footer from "./Footer.js";
-import About_Us from "./About_Us.jsx";
+import About_Us from "./About_Us.js";
+
+import ProfilePage from "./ProfilePage.js"; // Добавляем импорт
 
 const App = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true); 
+  const [darkMode, setDarkMode] = useState(false); 
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
   const toggleAuthModal = () => setIsAuthModalOpen((prev) => !prev);
@@ -24,7 +26,7 @@ const App = () => {
       <div 
         className={`min-h-screen flex flex-col transition-colors duration-300 
         ${darkMode ? "bg-gradient-to-br from-violet-500 to-violet-950" 
-                   : "bg-gradient-to-br from-neutral-50 to-neutral-400"}`}
+                   : "bg-gradient-to-br from-neutral-50 to-neutral-100"}`}
       >
         <Header 
           onSidebarToggle={toggleSidebar} 
@@ -45,6 +47,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<HomePage darkMode={darkMode} />} />
             <Route path="/about" element={<About_Us darkMode={darkMode} />} />
+            <Route path="/profile" element={<ProfilePage darkMode={darkMode} />} /> {/* Новый маршрут */}
           </Routes>
         </div>
 

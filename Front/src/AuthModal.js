@@ -84,7 +84,7 @@ const AuthModal = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
       <AnimatePresence>
         <motion.div
           key={isForgotPassword ? "forgot-password-modal" : isRegister ? "register-modal" : "login-modal"}
@@ -186,62 +186,64 @@ const AuthModal = ({ onClose }) => {
                 />
               )}
 
-              <div className="relative mb-3">
-                <motion.input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Пароль"
-                  className="w-full p-3 border rounded-lg"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                />
-                <span
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 cursor-pointer text-gray-600"
-                >
-                  <motion.div
+                <div className="relative mb-3">
+                  <motion.input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Пароль"
+                    className="w-full p-3 border rounded-lg"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    whileHover={{ scale: 1.2 }}
+                    transition={{ delay: 0.4 }}
+                  />
+                  <span
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 cursor-pointer text-gray-600"
                   >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                  </motion.div>
-                </span>
-              </div>
+                    <motion.img
+                      src={showPassword ? "eye-open.png" : "eye-closed.png"}
+                      alt="Toggle password visibility"
+                      className="w-6 h-6"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                      whileHover={{ scale: 1.2 }}
+                    />
+                  </span>
+                </div>
 
               {isRegister && (
                 <div className="relative mb-5">
-                  <motion.input
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Повторите пароль"
-                    className="w-full p-3 border rounded-lg"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                <motion.input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Повторите пароль"
+                  className="w-full p-3 border rounded-lg"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                />
+                <span
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-3 cursor-pointer text-gray-600"
+                >
+                  <motion.img
+                    src={showConfirmPassword ? "eye-open.png" : "eye-closed.png"}
+                    alt="Toggle confirm password visibility"
+                    className="w-6 h-6"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
+                    transition={{ delay: 0.6 }}
+                    whileHover={{ scale: 1.2 }}
                   />
-                  <span
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-3 cursor-pointer text-gray-600"
-                  >
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.6 }}
-                      whileHover={{ scale: 1.2 }}
-                    >
-                      {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                    </motion.div>
-                  </span>
-                </div>
+                </span>
+              </div>
               )}
 
               <motion.button
-                className="bg-teal-500 text-white w-full py-3 rounded-lg mb-3"
+                className="bg-gradient-to-br from-indigo-400 to-indigo-500 text-white w-full py-3 rounded-lg mb-3"
                 onClick={handleAuth}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
