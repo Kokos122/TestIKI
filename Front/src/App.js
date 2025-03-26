@@ -9,8 +9,9 @@ import AuthModal from "./AuthModal.js";
 import Footer from "./Footer.js";
 import About_Us from "./About_Us.js";
 import ProfilePage from "./ProfilePage.js";
+import TestsPage from './TestsPage.js';
 
-// Добавляем остальные тесты
+// Импорт тестов
 import AnxietyTest from "./components/AnxietyTest.js";
 import LoveTest from "./components/LoveTest.js";
 import CareerTest from "./components/CareerTest.js";
@@ -34,11 +35,10 @@ const App = () => {
 
   return (
     <Router>
-      <div 
-        className={`min-h-screen flex flex-col transition-colors duration-300 
+      <div className={`min-h-screen flex flex-col transition-colors duration-300 
         ${darkMode ? "bg-gradient-to-br from-violet-500 to-violet-950" 
-                   : "bg-gradient-to-br from-neutral-50 to-neutral-100"}`}
-      >
+                   : "bg-gradient-to-br from-neutral-50 to-neutral-100"}`}>
+        
         <Header 
           onSidebarToggle={toggleSidebar} 
           onProfileClick={toggleAuthModal} 
@@ -49,9 +49,6 @@ const App = () => {
         <div className="flex-grow">
           <AnimatePresence>
             {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} darkMode={darkMode} />}
-          </AnimatePresence>
-
-          <AnimatePresence>
             {isAuthModalOpen && <AuthModal onClose={toggleAuthModal} />}
           </AnimatePresence>
 
@@ -59,18 +56,27 @@ const App = () => {
             <Route path="/" element={<HomePage darkMode={darkMode} />} />
             <Route path="/about" element={<About_Us darkMode={darkMode} />} />
             <Route path="/profile" element={<ProfilePage darkMode={darkMode} />} />
+            
+            <Route path="/tests" element={
+              <TestsPage 
+                darkMode={darkMode}
+                onSidebarToggle={toggleSidebar}
+                onProfileClick={toggleAuthModal}
+                onThemeToggle={toggleTheme}
+              />
+            } />
 
-            {/* Маршруты для тестов */}
-            <Route path="/anxiety-test" element={<AnxietyTest />} />
-            <Route path="/love-test" element={<LoveTest />} />
-            <Route path="/career-test" element={<CareerTest />} />
-            <Route path="/logic-test" element={<LogicTest />} />
-            <Route path="/creativity-test" element={<CreativityTest />} />
-            <Route path="/flags-test" element={<FlagsTest />} />
-            <Route path="/dune-test" element={<DuneTest />} />
-            <Route path="/memory-test" element={<MemoryTest />} />
-            <Route path="/walking-dead-test" element={<WalkingDeadTest />} />
-            <Route path="/smeshariki-test" element={<SmesharikiTest />} />
+            {/* Маршруты тестов */}
+            <Route path="/anxiety-test" element={<AnxietyTest darkMode={darkMode} />} />
+            <Route path="/love-test" element={<LoveTest darkMode={darkMode} />} />
+            <Route path="/career-test" element={<CareerTest darkMode={darkMode} />} />
+            <Route path="/logic-test" element={<LogicTest darkMode={darkMode} />} />
+            <Route path="/creativity-test" element={<CreativityTest darkMode={darkMode} />} />
+            <Route path="/flags-test" element={<FlagsTest darkMode={darkMode} />} />
+            <Route path="/dune-test" element={<DuneTest darkMode={darkMode} />} />
+            <Route path="/memory-test" element={<MemoryTest darkMode={darkMode} />} />
+            <Route path="/walking-dead-test" element={<WalkingDeadTest darkMode={darkMode} />} />
+            <Route path="/smeshariki-test" element={<SmesharikiTest darkMode={darkMode} />} />
           </Routes>
         </div>
 
