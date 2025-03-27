@@ -1,131 +1,221 @@
-import React from "react";
-import { FaUserCircle, FaBars, FaSun, FaMoon } from "react-icons/fa";
-import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from 'react';
+import { FaUserCircle, FaBars, FaSun, FaMoon } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
+import { motion, useAnimation } from 'framer-motion';
 
 const Header = ({ onProfileClick, onSidebarToggle, onThemeToggle, darkMode }) => {
-  const headerBg = darkMode
-    ? "bg-gradient-to-br from-gray-800 via-gray-900 to-gray-800 shadow-gray-900/50"
-    : "bg-gradient-to-br from-indigo-400 via-indigo-500 to-indigo-600 shadow-indigo-400/50";
+  const [isHovering, setIsHovering] = useState(false);
+  const controls = useAnimation();
+
+  // Анимация фонового градиента
+  useEffect(() => {
+    const animateGradient = async () => {
+      while (true) {
+        await controls.start({
+          backgroundPosition: [
+            '0% 50%',
+            '100% 50%',
+            '0% 50%'
+          ],
+          transition: {
+            duration: 15,
+            repeat: Infinity,
+            ease: 'linear'
+          }
+        });
+      }
+    };
+    animateGradient();
+  }, [controls]);
+
+  // Эффект мягких энергетических волн
+  const EnergyWaves = () => {
+    return (
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(3)].map((_, i) => (
+          <motion.div
+            key={`wave-${i}`}
+            className="absolute rounded-full"
+            style={{
+              width: '150%',
+              height: '150%',
+              left: '-25%',
+              top: '-25%',
+              border: `1px solid ${darkMode ? 'rgba(165,180,252,0.2)' : 'rgba(255,255,255,0.2)'}`,
+              borderRadius: '50%'
+            }}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{
+              scale: 1.5,
+              opacity: [0, 0.3, 0],
+            }}
+            transition={{
+              duration: 4 + i,
+              repeat: Infinity,
+              delay: i * 1.5,
+              ease: 'easeOut'
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  // Эффект плавающих частиц
+  const FloatingParticles = () => {
+    return (
+      <>
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={`particle-${i}`}
+            className="absolute rounded-full"
+            style={{
+              width: `${2 + Math.random() * 3}px`,
+              height: `${2 + Math.random() * 3}px`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              backgroundColor: darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'
+            }}
+            animate={{
+              y: [0, -20, 0],
+              x: [0, (Math.random() - 0.5) * 30, 0],
+              opacity: [0.3, 0.8, 0.3]
+            }}
+            transition={{
+              duration: 5 + Math.random() * 10,
+              repeat: Infinity,
+              delay: Math.random() * 3,
+              ease: 'easeInOut'
+            }}
+          />
+        ))}
+      </>
+    );
+  };
 
   return (
     <motion.header
-      initial={{ y: -100, opacity: 0, scale: 0.9 }}
-      animate={{ y: 0, opacity: 1, scale: 1 }}
-      transition={{
-        type: "spring",
-        stiffness: 200,
-        damping: 25,
-        delay: 0.3
-      }}
-      className={`flex justify-between items-center px-6 py-3 h-20 shadow-2xl ${headerBg} sticky top-0 z-50`}
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className={`relative flex justify-between items-center px-6 py-4 h-18 sticky top-0 z-50 overflow-hidden ${
+        darkMode ? 'text-indigo-300' : 'text-white'
+      }`}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
     >
-      {/* Левая часть */}
-      <div className="flex items-center space-x-6">
-        {/* Кнопка меню */}
+      {/* Анимированный фон */}
+      <motion.div
+        className="absolute inset-0"
+        animate={controls}
+        style={{
+          background: darkMode
+            ? 'linear-gradient(45deg, #111827, #1f2937, #111827)'
+            : 'linear-gradient(45deg, #4f46e5, #6366f1, #4f46e5)',
+          backgroundSize: '200% 200%'
+        }}
+      />
+
+      {/* Эффекты */}
+      <EnergyWaves />
+      <FloatingParticles />
+
+      {/* Пульсирующая граница */}
+      <motion.div
+        className="absolute bottom-0 left-0 w-full h-0.5"
+        animate={{
+          opacity: [0.6, 1, 0.6],
+          background: darkMode
+            ? 'linear-gradient(90deg, transparent, #a5b4fc, transparent)'
+            : 'linear-gradient(90deg, transparent, #ffffff, transparent)',
+          boxShadow: darkMode
+            ? '0 0 10px 2px rgba(165,180,252,0.3)'
+            : '0 0 10px 2px rgba(255,255,255,0.3)'
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          ease: 'easeInOut'
+        }}
+      />
+
+      {/* Левая часть с логотипом */}
+      <div className="flex items-center space-x-5 z-10">
         <motion.button
           onClick={onSidebarToggle}
           whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          transition={{ type: "spring", stiffness: 400, damping: 10 }}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
+          whileTap={{ scale: 0.9 }}
+          className="p-2 rounded-lg backdrop-blur-sm hover:bg-white/10 transition-all"
         >
-          <FaBars size={24} className={darkMode ? "text-indigo-300" : "text-indigo-100"} />
+          <FaBars size={20} />
         </motion.button>
 
-        {/* Логотип */}
-        <motion.div whileHover={{ scale: 1.05 }}>
-          <Link to="/">
-            <img
-              src={darkMode ? "/images/logo-white.png" : "/images/logo-black.png"}
-              alt="TestIKI Logo"
-              className="h-12 w-auto transition-transform"
+        <Link to="/" className="flex items-center z-10">
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <img 
+              src={darkMode ? "/images/logo-white.png" : "/images/logo-white.png"} 
+              alt="TESTiki"
+              className="h-10 w-auto"
             />
-          </Link>
-        </motion.div>
+          </motion.div>
+        </Link>
       </div>
 
-      {/* Правая часть */}
-      <div className="flex items-center space-x-6">
-        {/* Переключатель темы */}
+      {/* Правая часть с иконками */}
+      <div className="flex items-center space-x-5 z-10">
         <motion.button
           onClick={onThemeToggle}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
-          animate={{
-            rotate: [0, 10, -10, 0],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className={`p-2 rounded-full ${darkMode ? "bg-indigo-900/30" : "bg-white/30"}`}
-          aria-label="Переключить тему"
+          className={`p-2 rounded-full backdrop-blur-md ${
+            darkMode ? 'bg-gray-800/40' : 'bg-white/20'
+          } transition-all`}
         >
           {darkMode ? (
-            <FaMoon size={20} className="text-indigo-300" />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
+            >
+              <FaMoon size={18} />
+            </motion.div>
           ) : (
-            <FaSun size={22} className="text-yellow-400" />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+            >
+              <FaSun size={18} />
+            </motion.div>
           )}
         </motion.button>
 
-        {/* Иконка профиля */}
         <motion.button
           onClick={onProfileClick}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          transition={{ type: "spring", stiffness: 400, damping: 10 }}
-          className={`p-1 rounded-full ${darkMode ? "" : "bg-white/20 backdrop-blur-sm"}`}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="p-1 rounded-full hover:bg-white/10 transition-all relative"
         >
-          <FaUserCircle 
-            size={40} 
-            className={darkMode ? "text-indigo-300" : "text-indigo-700 drop-shadow-lg"} 
-          />
-        </motion.button>
-      </div>
-
-      {/* Декоративные элементы */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(5)].map((_, i) => (
+          <FaUserCircle size={28} />
           <motion.div
-            key={i}
-            initial={{ opacity: 0 }}
+            className="absolute inset-0 rounded-full border pointer-events-none"
             animate={{
-              x: [0, 100 * (i % 2 === 0 ? 1 : -1), 0],
-              y: [0, 50, 0],
-              opacity: [0.2, 0.4, 0.2]
+              borderColor: [
+                `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`,
+                `${darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'}`,
+                `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`
+              ],
+              scale: [1, 1.2, 1]
             }}
             transition={{
-              duration: 15 + i * 3,
+              duration: 2,
               repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 2
-            }}
-            className={`absolute rounded-full ${darkMode ? "bg-indigo-500/15" : "bg-white/30"}`}
-            style={{
-              width: `${80 + i * 40}px`,
-              height: `${80 + i * 40}px`,
-              top: `${10 + i * 10}%`,
-              left: `${i * 15}%`,
-              filter: "blur(20px)"
+              ease: 'easeInOut'
             }}
           />
-        ))}
-
-        {/* Дополнительный градиентный блик */}
-        <motion.div
-          animate={{
-            x: ["-100%", "100%"],
-            opacity: [0.2, 0.8, 0.2]
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-          className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none"
-        />
+        </motion.button>
       </div>
     </motion.header>
   );
