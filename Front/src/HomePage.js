@@ -1,8 +1,18 @@
-import React from "react";
+import React, { useEffect, useState } from 'react'
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { supabase } from './supabaseClient.js'
 
 const HomePage = ({ darkMode }) => {
+  useEffect(() => {
+      const fetchData = async () => {
+        const { data, error } = await supabase.from('users').select()
+        if (error) console.error('Ошибка:', error)
+        else console.log('Данные:', data)
+      }
+    
+      fetchData()
+    }, [])
   const testItems = [
     { img: "/images/test9.png", title: "Кто ты из Ходячих мертвецов?", link: "/walking-dead-test" },
     { img: "/images/test1.png", title: "Кто ты из Смешариков?", link: "/smeshariki-test" },
