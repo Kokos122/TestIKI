@@ -3,6 +3,7 @@ import { FaUserCircle, FaBars, FaSun, FaMoon } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { motion, useAnimation } from 'framer-motion';
 
+
 const Header = ({ onProfileClick, onSidebarToggle, onThemeToggle, darkMode }) => {
   const [isHovering, setIsHovering] = useState(false);
   const controls = useAnimation();
