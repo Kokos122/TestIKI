@@ -1,11 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { FaUserCircle, FaBars, FaSun, FaMoon } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaUserCircle, FaBars, FaSun, FaMoon, FaSignOutAlt } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { motion, useAnimation } from 'framer-motion';
 
-const Header = ({ onProfileClick, onSidebarToggle, onThemeToggle, darkMode }) => {
+const Header = ({ 
+  isAuthenticated, 
+  currentUser, 
+  onProfileClick, 
+  onSidebarToggle, 
+  onThemeToggle, 
+  onLogout,
+  darkMode 
+}) => {
   const [isHovering, setIsHovering] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Состояние для выпадающего меню
+  const dropdownRef = useRef(null); // Референс для выпадающего меню
   const controls = useAnimation();
+
+  // Обработчик клика вне выпадающего меню
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Анимация фонового градиента
   useEffect(() => {
@@ -26,7 +48,7 @@ const Header = ({ onProfileClick, onSidebarToggle, onThemeToggle, darkMode }) =>
       }
     };
     animateGradient();
-  }, [controls]);
+  }, [controls, darkMode]);
 
   // Эффект мягких энергетических волн
   const EnergyWaves = () => {
@@ -117,7 +139,7 @@ const Header = ({ onProfileClick, onSidebarToggle, onThemeToggle, darkMode }) =>
       />
 
       {/* Эффекты */}
-      <EnergyWaves />
+      {isHovering && <EnergyWaves />}
       <FloatingParticles />
 
       {/* Пульсирующая граница */}
@@ -166,7 +188,7 @@ const Header = ({ onProfileClick, onSidebarToggle, onThemeToggle, darkMode }) =>
       </div>
 
       {/* Правая часть с иконками */}
-      <div className="flex items-center space-x-5 z-10">
+      <div className="flex items-center space-x-4 z-10 relative">
         <motion.button
           onClick={onThemeToggle}
           whileHover={{ scale: 1.1 }}
@@ -192,30 +214,70 @@ const Header = ({ onProfileClick, onSidebarToggle, onThemeToggle, darkMode }) =>
           )}
         </motion.button>
 
-        <motion.button
-          onClick={onProfileClick}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="p-1 rounded-full hover:bg-white/10 transition-all relative"
-        >
-          <FaUserCircle size={28} />
-          <motion.div
-            className="absolute inset-0 rounded-full border pointer-events-none"
-            animate={{
-              borderColor: [
-                `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`,
-                `${darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'}`,
-                `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`
-              ],
-              scale: [1, 1.2, 1]
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: 'easeInOut'
-            }}
-          />
-        </motion.button>
+        {isAuthenticated ? (
+          <>
+            <motion.button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)} // Переключение состояния меню
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-1 rounded-full hover:bg-white/10 transition-all relative"
+            >
+              <FaUserCircle size={28} />
+              <motion.div
+                className="absolute inset-0 rounded-full border pointer-events-none"
+                animate={{
+                  borderColor: [
+                    `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`,
+                    `${darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'}`,
+                    `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`
+                  ],
+                  scale: [1, 1.2, 1]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: 'easeInOut'
+                }}
+              />
+            </motion.button>
+
+            {/* Выпадающее меню */}
+            {isDropdownOpen && (
+              <motion.div
+                ref={dropdownRef} // Привязываем референс
+                className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden z-20"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="py-2">
+                  <button
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={onProfileClick}
+                  >
+                    <FaUserCircle className="mr-2" /> Мой профиль
+                  </button>
+                  <button
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={onLogout}
+                  >
+                    <FaSignOutAlt className="mr-2" /> Выйти
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </>
+        ) : (
+          <motion.button
+            onClick={onProfileClick}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-4 py-1 rounded-full bg-white/10 hover:bg-white/20 transition-all text-sm"
+          >
+            Войти
+          </motion.button>
+        )}
       </div>
     </motion.header>
   );
