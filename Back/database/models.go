@@ -3,17 +3,30 @@ package database
 import (
 	"errors"
 
+	"time"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type User struct {
 	gorm.Model
-	Username    string `json:"username" gorm:"unique;not null"`
-	Password    string `json:"-" gorm:"not null"`
-	Email       string `json:"email" gorm:"unique;not null"`
-	IsVerified  bool   `json:"is_verified" gorm:"default:false"`
-	VerifyToken string `json:"-"`
+	Username    string       `json:"username" gorm:"unique;not null"`
+	Password    string       `json:"-" gorm:"not null"`
+	Email       string       `json:"email" gorm:"unique;not null"`
+	IsVerified  bool         `json:"is_verified" gorm:"default:false"`
+	VerifyToken string       `json:"-"`
+	AvatarURL   string       `json:"avatar_url" gorm:"default:'/images/default-avatar.png'"`
+	TestResults []TestResult `json:"test_results" gorm:"foreignKey:UserID"`
+}
+
+type TestResult struct {
+	gorm.Model
+	UserID      uint      `json:"user_id"`
+	TestName    string    `json:"test_name"`
+	Score       int       `json:"score"`
+	ResultText  string    `json:"result_text"`
+	CompletedAt time.Time `json:"completed_at"`
 }
 
 func (u *User) HashPassword() error {

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { FaUserCircle, FaBars, FaSun, FaMoon, FaSignOutAlt } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaUserCircle, FaBars, FaSun, FaMoon } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { motion, useAnimation } from 'framer-motion';
+import PropTypes from 'prop-types';
 
 const Header = ({ 
   isAuthenticated, 
@@ -13,26 +14,14 @@ const Header = ({
   darkMode 
 }) => {
   const [isHovering, setIsHovering] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Состояние для выпадающего меню
-  const dropdownRef = useRef(null); // Референс для выпадающего меню
   const controls = useAnimation();
 
-  // Обработчик клика вне выпадающего меню
+  // Анимация фона с безопасным удалением
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Анимация фонового градиента
-  useEffect(() => {
+    let isMounted = true;
+    
     const animateGradient = async () => {
-      while (true) {
+      while (isMounted) {
         await controls.start({
           backgroundPosition: [
             '0% 50%',
@@ -47,84 +36,85 @@ const Header = ({
         });
       }
     };
+    
     animateGradient();
+    
+    return () => {
+      isMounted = false; // Защита от утечек памяти
+    };
   }, [controls, darkMode]);
 
-  // Эффект мягких энергетических волн
-  const EnergyWaves = () => {
-    return (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(3)].map((_, i) => (
-          <motion.div
-            key={`wave-${i}`}
-            className="absolute rounded-full"
-            style={{
-              width: '150%',
-              height: '150%',
-              left: '-25%',
-              top: '-25%',
-              border: `1px solid ${darkMode ? 'rgba(165,180,252,0.2)' : 'rgba(255,255,255,0.2)'}`,
-              borderRadius: '50%'
-            }}
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{
-              scale: 1.5,
-              opacity: [0, 0.3, 0],
-            }}
-            transition={{
-              duration: 4 + i,
-              repeat: Infinity,
-              delay: i * 1.5,
-              ease: 'easeOut'
-            }}
-          />
-        ))}
-      </div>
-    );
-  };
+  // Компонент энергетических волн
+  const EnergyWaves = () => (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {[...Array(3)].map((_, i) => (
+        <motion.div
+          key={`wave-${i}`}
+          className="absolute rounded-full"
+          style={{
+            width: '150%',
+            height: '150%',
+            left: '-25%',
+            top: '-25%',
+            border: `1px solid ${darkMode ? 'rgba(165,180,252,0.2)' : 'rgba(255,255,255,0.2)'}`,
+          }}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{
+            scale: 1.5,
+            opacity: [0, 0.3, 0],
+          }}
+          transition={{
+            duration: 4 + i,
+            repeat: Infinity,
+            delay: i * 1.5,
+            ease: 'easeOut'
+          }}
+        />
+      ))}
+    </div>
+  );
 
-  // Эффект плавающих частиц
-  const FloatingParticles = () => {
-    return (
-      <>
-        {[...Array(8)].map((_, i) => (
-          <motion.div
-            key={`particle-${i}`}
-            className="absolute rounded-full"
-            style={{
-              width: `${2 + Math.random() * 3}px`,
-              height: `${2 + Math.random() * 3}px`,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              backgroundColor: darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'
-            }}
-            animate={{
-              y: [0, -20, 0],
-              x: [0, (Math.random() - 0.5) * 30, 0],
-              opacity: [0.3, 0.8, 0.3]
-            }}
-            transition={{
-              duration: 5 + Math.random() * 10,
-              repeat: Infinity,
-              delay: Math.random() * 3,
-              ease: 'easeInOut'
-            }}
-          />
-        ))}
-      </>
-    );
-  };
+  // Оптимизированные плавающие частицы
+  const FloatingParticles = () => (
+    <>
+      {[...Array(5)].map((_, i) => (
+        <motion.div
+          key={`particle-${i}`}
+          className="absolute rounded-full"
+          style={{
+            width: `${2 + Math.random() * 3}px`,
+            height: `${2 + Math.random() * 3}px`,
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            backgroundColor: darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'
+          }}
+          animate={{
+            y: [0, -20, 0],
+            x: [0, (Math.random() - 0.5) * 20, 0],
+            opacity: [0.3, 0.8, 0.3]
+          }}
+          transition={{
+            duration: 5 + Math.random() * 10,
+            repeat: Infinity,
+            delay: Math.random() * 3,
+            ease: 'easeInOut'
+          }}
+        />
+      ))}
+    </>
+  );
 
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className={`relative flex justify-between items-center px-6 py-4 h-18 sticky top-0 z-50 overflow-hidden ${
+      className={`relative flex justify-between items-center px-4 sm:px-6 py-4 h-18 sticky top-0 z-50 overflow-hidden ${
         darkMode ? 'text-indigo-300' : 'text-white'
       }`}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
+      aria-label="Основной заголовок"
     >
       {/* Анимированный фон */}
       <motion.div
@@ -138,7 +128,7 @@ const Header = ({
         }}
       />
 
-      {/* Эффекты */}
+      {/* Визуальные эффекты */}
       {isHovering && <EnergyWaves />}
       <FloatingParticles />
 
@@ -161,34 +151,36 @@ const Header = ({
         }}
       />
 
-      {/* Левая часть с логотипом */}
-      <div className="flex items-center space-x-5 z-10">
+      {/* Левая часть - лого и меню */}
+      <div className="flex items-center space-x-4 sm:space-x-5 z-10">
         <motion.button
           onClick={onSidebarToggle}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           className="p-2 rounded-lg backdrop-blur-sm hover:bg-white/10 transition-all"
+          aria-label="Открыть меню"
         >
           <FaBars size={20} />
         </motion.button>
 
-        <Link to="/" className="flex items-center z-10">
+        <Link to="/" className="flex items-center z-10" aria-label="На главную">
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
           >
             <img 
-              src={darkMode ? "/images/logo-white.png" : "/images/logo-white.png"} 
+              src="/images/logo-white.png" 
               alt="TESTiki"
-              className="h-10 w-auto"
+              className="h-8 sm:h-10 w-auto"
             />
           </motion.div>
         </Link>
       </div>
 
-      {/* Правая часть с иконками */}
-      <div className="flex items-center space-x-4 z-10 relative">
+      {/* Правая часть - кнопки */}
+      <div className="flex items-center space-x-3 sm:space-x-4 z-10 relative">
+        {/* Кнопка смены темы */}
         <motion.button
           onClick={onThemeToggle}
           whileHover={{ scale: 1.1 }}
@@ -196,6 +188,7 @@ const Header = ({
           className={`p-2 rounded-full backdrop-blur-md ${
             darkMode ? 'bg-gray-800/40' : 'bg-white/20'
           } transition-all`}
+          aria-label={`Переключить на ${darkMode ? 'светлую' : 'тёмную'} тему`}
         >
           {darkMode ? (
             <motion.div
@@ -214,66 +207,40 @@ const Header = ({
           )}
         </motion.button>
 
+        {/* Кнопка профиля или входа */}
         {isAuthenticated ? (
-          <>
-            <motion.button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)} // Переключение состояния меню
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-1 rounded-full hover:bg-white/10 transition-all relative"
-            >
-              <FaUserCircle size={28} />
-              <motion.div
-                className="absolute inset-0 rounded-full border pointer-events-none"
-                animate={{
-                  borderColor: [
-                    `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`,
-                    `${darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'}`,
-                    `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`
-                  ],
-                  scale: [1, 1.2, 1]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'easeInOut'
-                }}
-              />
-            </motion.button>
-
-            {/* Выпадающее меню */}
-            {isDropdownOpen && (
-              <motion.div
-                ref={dropdownRef} // Привязываем референс
-                className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden z-20"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="py-2">
-                  <button
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={onProfileClick}
-                  >
-                    <FaUserCircle className="mr-2" /> Мой профиль
-                  </button>
-                  <button
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    onClick={onLogout}
-                  >
-                    <FaSignOutAlt className="mr-2" /> Выйти
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </>
+          <motion.button
+            onClick={onProfileClick}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-1 rounded-full hover:bg-white/10 transition-all relative"
+            aria-label="Профиль пользователя"
+          >
+            <FaUserCircle size={28} />
+            <motion.div
+              className="absolute inset-0 rounded-full border pointer-events-none"
+              animate={{
+                borderColor: [
+                  `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`,
+                  `${darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'}`,
+                  `${darkMode ? 'rgba(165,180,252,0)' : 'rgba(255,255,255,0)'}`
+                ],
+                scale: [1, 1.2, 1]
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: 'easeInOut'
+              }}
+            />
+          </motion.button>
         ) : (
           <motion.button
             onClick={onProfileClick}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="px-4 py-1 rounded-full bg-white/10 hover:bg-white/20 transition-all text-sm"
+            className="px-3 sm:px-4 py-1 rounded-full bg-white/10 hover:bg-white/20 transition-all text-sm"
+            aria-label="Войти в систему"
           >
             Войти
           </motion.button>
@@ -281,6 +248,17 @@ const Header = ({
       </div>
     </motion.header>
   );
+};
+
+// Проверка типов пропсов
+Header.propTypes = {
+  isAuthenticated: PropTypes.bool.isRequired,
+  currentUser: PropTypes.object,
+  onProfileClick: PropTypes.func.isRequired,
+  onSidebarToggle: PropTypes.func.isRequired,
+  onThemeToggle: PropTypes.func.isRequired,
+  onLogout: PropTypes.func.isRequired,
+  darkMode: PropTypes.bool.isRequired
 };
 
 export default Header;

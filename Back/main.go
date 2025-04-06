@@ -26,12 +26,21 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		_, err := auth.ValidateToken(tokenString)
+		claims, err := auth.ValidateToken(tokenString)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			return
 		}
 
+		// Добавляем username и userID в контекст
+		c.Set("username", claims.Username)
+
+		var user database.User
+		if err := database.DB.Where("username = ?", claims.Username).First(&user).Error; err == nil {
+			c.Set("userID", user.ID)
+		}
+
+		c.Set("username", claims.Username)
 		c.Next()
 	}
 }
@@ -97,12 +106,18 @@ func main() {
 	// Публичные маршруты
 	router.POST("/register", handlers.Register)
 	router.POST("/login", handlers.Login)
+	router.POST("/logout", handlers.Logout)
 
 	// Защищенные маршруты
 	authGroup := router.Group("/")
 	authGroup.Use(AuthMiddleware())
 	{
 		authGroup.GET("/me", handlers.GetCurrentUser)
+		authGroup.POST("/test-result", handlers.SaveTestResult)
+		authGroup.POST("/upload-avatar", handlers.UploadAvatar)
+		authGroup.POST("/update-avatar", handlers.UpdateAvatar)
+		authGroup.DELETE("/avatar", handlers.DeleteAvatar)
+
 	}
 
 	// Запуск сервера
