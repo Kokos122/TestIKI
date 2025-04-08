@@ -16,6 +16,23 @@ const Header = ({
   const [isHovering, setIsHovering] = useState(false);
   const controls = useAnimation();
 
+
+    // Определяем варианты анимации
+  const slideUp = {
+    hidden: { 
+      opacity: 0, 
+      y: 20 
+    },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: "easeOut"
+      }
+    }
+  };
+
   // Анимация фона с безопасным удалением
   useEffect(() => {
     let isMounted = true;
@@ -76,33 +93,33 @@ const Header = ({
 
   // Оптимизированные плавающие частицы
   const FloatingParticles = () => (
-    <>
-      {[...Array(5)].map((_, i) => (
-        <motion.div
-          key={`particle-${i}`}
-          className="absolute rounded-full"
-          style={{
-            width: `${2 + Math.random() * 3}px`,
-            height: `${2 + Math.random() * 3}px`,
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            backgroundColor: darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'
-          }}
-          animate={{
-            y: [0, -20, 0],
-            x: [0, (Math.random() - 0.5) * 20, 0],
-            opacity: [0.3, 0.8, 0.3]
-          }}
-          transition={{
-            duration: 5 + Math.random() * 10,
-            repeat: Infinity,
-            delay: Math.random() * 3,
-            ease: 'easeInOut'
-          }}
-        />
-      ))}
-    </>
-  );
+  <>
+    {[...Array(30)].map((_, i) => (
+      <motion.div
+        key={`particle-${i}`}
+        className="absolute rounded-full"
+        style={{
+          width: `${2 + Math.random() * 3}px`,
+          height: `${2 + Math.random() * 3}px`,
+          left: `${Math.random() * 100}%`,
+          top: `${Math.random() * 100}%`,
+          backgroundColor: darkMode ? 'rgba(165,180,252,0.6)' : 'rgba(255,255,255,0.6)'
+        }}
+        animate={{
+          y: [0, -20, 0],
+          x: [0, (Math.random() - 0.5) * 20, 0],
+          opacity: [0.3, 0.8, 0.3]
+        }}
+        transition={{
+          duration: 5 + Math.random() * 10,
+          repeat: Infinity,
+          delay: Math.random() * 2, // Уменьшенная задержка
+          ease: 'easeInOut'
+        }}
+      />
+    ))}
+  </>
+);
 
   return (
     <motion.header
