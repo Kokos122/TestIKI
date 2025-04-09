@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import axios from 'axios';
 
@@ -22,15 +22,26 @@ import MemoryTest from "./components/MemoryTest.js";
 import WalkingDeadTest from "./components/WalkingDeadTest.js";
 import SmesharikiTest from "./components/SmesharikiTest.js";
 
+const AppWrapper = () => (
+  <Router>
+    <App />
+  </Router>
+);
+
 const App = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState({
+    id: null,
+    username: '',
+    email: '',
+    avatar_url: '/images/default-avatar.png'
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
-  // Создаем экземпляр axios с интерцептором
   const api = axios.create({
     baseURL: 'http://localhost:8080'
   });
@@ -39,15 +50,12 @@ const App = () => {
     response => response,
     error => {
       if (error.response?.status === 401) {
-        localStorage.removeItem('token');
-        setIsAuthenticated(false);
-        setCurrentUser(null);
+        handleLogout();
       }
       return Promise.reject(error);
     }
   );
 
-  // Функция проверки аутентификации
   const verifyAuth = async (token) => {
     try {
       const response = await api.get('/me', {
@@ -57,12 +65,15 @@ const App = () => {
         }
       });
       setIsAuthenticated(true);
-      setCurrentUser(response.data.user);
+      setCurrentUser({
+        id: response.data.user.id,
+        username: response.data.user.username,
+        email: response.data.user.email,
+        avatar_url: response.data.user.avatar_url || '/images/default-avatar.png'
+      });
       return true;
     } catch (error) {
-      localStorage.removeItem('token');
-      setIsAuthenticated(false);
-      setCurrentUser(null);
+      handleLogout();
       return false;
     }
   };
@@ -75,26 +86,58 @@ const App = () => {
       }
       setIsLoading(false);
     };
-
     checkAuth();
   }, []);
 
-  const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
-  const toggleAuthModal = () => setIsAuthModalOpen((prev) => !prev);
+  const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
+  const toggleAuthModal = () => setIsAuthModalOpen(prev => !prev);
   const closeSidebar = () => setIsSidebarOpen(false);
-  const toggleTheme = () => setDarkMode((prev) => !prev);
+  const toggleTheme = () => setDarkMode(prev => !prev);
 
-  const handleLogin = (token, user) => {
+  const handleLogin = (token, userData) => {
     localStorage.setItem('token', token);
     setIsAuthenticated(true);
-    setCurrentUser(user);
+    setCurrentUser({
+      id: userData.id,
+      username: userData.username,
+      email: userData.email,
+      avatar_url: userData.avatar_url || '/images/default-avatar.png'
+    });
     setIsAuthModalOpen(false);
+    navigate('/profile');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setIsAuthenticated(false);
-    setCurrentUser(null);
+  const handleLogout = async () => {
+    try {
+        await api.post('/logout');
+    } catch (error) {
+        console.error('Logout error:', error);
+    } finally {
+        localStorage.removeItem('token');
+        setIsAuthenticated(false);
+        setCurrentUser({
+            id: null,
+            username: '',
+            email: '',
+            avatar_url: '/images/default-avatar.png'
+        });
+        navigate('/');
+    }
+};
+
+  const updateAvatar = (newAvatarUrl) => {
+    setCurrentUser(prev => ({
+      ...prev,
+      avatar_url: newAvatarUrl
+    }));
+  };
+
+  const handleProfileClick = () => {
+    if (isAuthenticated) {
+      navigate('/profile');
+    } else {
+      toggleAuthModal();
+    }
   };
 
   if (isLoading) {
@@ -110,68 +153,71 @@ const App = () => {
   }
 
   return (
-    <Router>
-      <div className={`min-h-screen flex flex-col transition-colors duration-300
-        ${darkMode ? "bg-gradient-to-br from-violet-500 to-violet-950"
-                  : "bg-gradient-to-br from-neutral-50 to-neutral-100"}`}>
-        
-        <Header
-          isAuthenticated={isAuthenticated}
-          currentUser={currentUser}
-          onSidebarToggle={toggleSidebar}
-          onProfileClick={toggleAuthModal}
-          onLogout={handleLogout}
-          onThemeToggle={toggleTheme}
-          darkMode={darkMode}
-        />
+    <div className={`min-h-screen flex flex-col transition-colors duration-300
+      ${darkMode ? "bg-gradient-to-br from-violet-500 to-violet-950"
+                : "bg-gradient-to-br from-neutral-50 to-neutral-100"}`}>
+      
+      <Header
+        isAuthenticated={isAuthenticated}
+        currentUser={currentUser}
+        onSidebarToggle={toggleSidebar}
+        onProfileClick={handleProfileClick}
+        onLogout={handleLogout}
+        onThemeToggle={toggleTheme}
+        darkMode={darkMode}
+      />
 
-        <div className="flex-grow">
-          <AnimatePresence>
-            {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} darkMode={darkMode} />}
-            {isAuthModalOpen && (
-              <AuthModal
-                onClose={toggleAuthModal}
-                onLoginSuccess={handleLogin}
-              />
-            )}
-          </AnimatePresence>
-
-          <Routes>
-            <Route path="/" element={<HomePage darkMode={darkMode} />} />
-            <Route path="/about" element={<About_Us darkMode={darkMode} />} />
-            <Route
-              path="/profile"
-              element={
-                isAuthenticated ?
-                  <ProfilePage user={currentUser} darkMode={darkMode} /> :
-                  <Navigate to="/" />
-              }
+      <div className="flex-grow">
+        <AnimatePresence>
+          {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} darkMode={darkMode} />}
+          {isAuthModalOpen && (
+            <AuthModal
+              onClose={toggleAuthModal}
+              onLoginSuccess={handleLogin}
             />
-            <Route path="/tests" element={
-              <TestsPage
-                darkMode={darkMode}
-                onSidebarToggle={toggleSidebar}
-                onProfileClick={toggleAuthModal}
-                onThemeToggle={toggleTheme}
-              />
-            } />
-            <Route path="/anxiety-test" element={<AnxietyTest darkMode={darkMode} />} />
-            <Route path="/love-test" element={<LoveTest darkMode={darkMode} />} />
-            <Route path="/career-test" element={<CareerTest darkMode={darkMode} />} />
-            <Route path="/logic-test" element={<LogicTest darkMode={darkMode} />} />
-            <Route path="/creativity-test" element={<CreativityTest darkMode={darkMode} />} />
-            <Route path="/flags-test" element={<FlagsTest darkMode={darkMode} />} />
-            <Route path="/dune-test" element={<DuneTest darkMode={darkMode} />} />
-            <Route path="/memory-test" element={<MemoryTest darkMode={darkMode} />} />
-            <Route path="/walking-dead-test" element={<WalkingDeadTest darkMode={darkMode} />} />
-            <Route path="/smeshariki-test" element={<SmesharikiTest darkMode={darkMode} />} />
-          </Routes>
-        </div>
+          )}
+        </AnimatePresence>
 
-        <Footer darkMode={darkMode} />
+        <Routes>
+          <Route path="/" element={<HomePage darkMode={darkMode} />} />
+          <Route path="/about" element={<About_Us darkMode={darkMode} />} />
+          <Route
+            path="/profile"
+            element={
+              isAuthenticated ? 
+                <ProfilePage 
+                  user={currentUser} 
+                  darkMode={darkMode} 
+                  onAvatarUpdate={updateAvatar}
+                  onLogout={handleLogout}  // <- Вот это важно добавить
+                /> : 
+                <Navigate to="/" />
+            }
+          />
+          <Route path="/tests" element={
+            <TestsPage
+              darkMode={darkMode}
+              onSidebarToggle={toggleSidebar}
+              onProfileClick={handleProfileClick}
+              onThemeToggle={toggleTheme}
+            />
+          } />
+          <Route path="/anxiety-test" element={<AnxietyTest darkMode={darkMode} />} />
+          <Route path="/love-test" element={<LoveTest darkMode={darkMode} />} />
+          <Route path="/career-test" element={<CareerTest darkMode={darkMode} />} />
+          <Route path="/logic-test" element={<LogicTest darkMode={darkMode} />} />
+          <Route path="/creativity-test" element={<CreativityTest darkMode={darkMode} />} />
+          <Route path="/flags-test" element={<FlagsTest darkMode={darkMode} />} />
+          <Route path="/dune-test" element={<DuneTest darkMode={darkMode} />} />
+          <Route path="/memory-test" element={<MemoryTest darkMode={darkMode} />} />
+          <Route path="/walking-dead-test" element={<WalkingDeadTest darkMode={darkMode} />} />
+          <Route path="/smeshariki-test" element={<SmesharikiTest darkMode={darkMode} />} />
+        </Routes>
       </div>
-    </Router>
+
+      <Footer darkMode={darkMode} />
+    </div>
   );
 };
 
-export default App;
+export default AppWrapper;
