@@ -22,6 +22,8 @@ import MemoryTest from "./components/MemoryTest.js";
 import WalkingDeadTest from "./components/WalkingDeadTest.js";
 import SmesharikiTest from "./components/SmesharikiTest.js";
 
+const API_URL = process.env.REACT_APP_API_URL;
+
 const AppWrapper = () => (
   <Router>
     <App />
@@ -43,7 +45,7 @@ const App = () => {
   const navigate = useNavigate();
 
   const api = axios.create({
-    baseURL: 'http://localhost:8080'
+    baseURL: API_URL
   });
 
   api.interceptors.response.use(
@@ -221,4 +223,3 @@ const App = () => {
 };
 
 export default AppWrapper;
-//коментарий от Егора

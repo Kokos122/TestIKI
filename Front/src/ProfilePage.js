@@ -19,6 +19,8 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { toast } from 'react-toastify';
 import axios from 'axios';
 
+const API_URL = process.env.REACT_APP_API_URL;
+
 const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) => {
     const [testResults, setTestResults] = useState([]);
     const [isEditing, setIsEditing] = useState(false);
@@ -77,7 +79,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
         const fetchTestResults = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await axios.get('http://localhost:8080/me', {
+                const response = await axios.get(`${API_URL}/me`, {
                     headers: { 
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -136,7 +138,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
     const handleDeleteAvatar = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await axios.delete('http://localhost:8080/avatar', {
+            const response = await axios.delete(`${API_URL}/avatar`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -173,7 +175,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
         try {
             const token = localStorage.getItem('token');
             const response = await axios.post(
-                'http://localhost:8080/upload-avatar',
+                `${API_URL}/upload-avatar`,
                 formData,
                 {
                     headers: {
@@ -205,7 +207,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
         setIsLoading(true);
         try {
             const token = localStorage.getItem('token');
-            await axios.patch('http://localhost:8080/update-profile', {
+            await axios.patch(`${API_URL}/update-profile`, {
                 username,
                 email
             }, {

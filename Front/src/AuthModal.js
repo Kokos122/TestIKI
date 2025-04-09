@@ -1,11 +1,12 @@
 // модальное окно авторизации
-
 import React, { useState } from "react";
 import { FaGoogle, FaEye, FaEyeSlash } from "react-icons/fa";
 import { SlSocialVkontakte } from "react-icons/sl";
 import { SiTelegram } from "react-icons/si";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL;
 
 const AuthModal = ({ onClose, onLoginSuccess }) => {
   const [isRegister, setIsRegister] = useState(false);
@@ -70,7 +71,7 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
       return;
     }
   
-    const url = isRegister ? "http://localhost:8080/register" : "http://localhost:8080/login";
+    const url = `${API_URL}${isRegister ? "/register" : "/login"}`;
     const data = { username, password, ...(isRegister && { email }) };
   
     try {
@@ -109,7 +110,7 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
 
     setError("");
     try {
-      const response = await axios.post("http://localhost:8080/reset-password", { email });
+      const response = await axios.post(`${API_URL}/reset-password`, { email });
       alert(response.data.message);
       setIsForgotPassword(false);
     } catch (error) {
