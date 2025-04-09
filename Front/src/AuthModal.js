@@ -1,3 +1,5 @@
+// модальное окно авторизации
+
 import React, { useState } from "react";
 import { FaGoogle, FaEye, FaEyeSlash } from "react-icons/fa";
 import { SlSocialVkontakte } from "react-icons/sl";
@@ -79,7 +81,6 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
         setIsRegister(false);
       } else {
         onLoginSuccess(response.data.token, response.data.user);
-        onClose();
       }
     } catch (error) {
       const serverError = error.response?.data?.error;
