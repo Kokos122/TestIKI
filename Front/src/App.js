@@ -45,7 +45,7 @@ const App = () => {
   const navigate = useNavigate();
 
   const api = axios.create({
-    baseURL: API_URL
+    baseURL: 'https://testiki-production.up.railway.app'
   });
 
   api.interceptors.response.use(
