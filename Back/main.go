@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
@@ -32,86 +34,101 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Добавляем username и userID в контекст
-		c.Set("username", claims.Username)
-
 		var user database.User
-		if err := database.DB.Where("username = ?", claims.Username).First(&user).Error; err == nil {
-			c.Set("userID", user.ID)
+		if err := database.DB.Where("username = ?", claims.Username).First(&user).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+				return
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "database error"})
+			return
 		}
 
 		c.Set("username", claims.Username)
+		c.Set("userID", user.ID)
 		c.Next()
 	}
 }
 
 func main() {
-	// Инициализация логгера zap
+	// Логгер
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			log.Printf("Failed to sync logger: %v", err)
+		}
+	}()
 
-	// Загрузка .env файла
+	// Загрузка .env
 	if err := godotenv.Load(); err != nil {
 		logger.Info("Warning: .env file not found")
 	}
 
-	// Проверка обязательных переменных окружения
-	if os.Getenv("JWT_SECRET") == "" {
-		logger.Fatal("JWT_SECRET environment variable is required")
+	// Проверка переменных окружения
+	requiredEnvVars := []string{"JWT_SECRET", "DATABASE_URL"}
+	for _, envVar := range requiredEnvVars {
+		if os.Getenv(envVar) == "" {
+			logger.Fatal("Required environment variable is missing", zap.String("variable", envVar))
+		}
 	}
 
-	// Инициализация БД
+	if os.Getenv("ENV") == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// Подключение к БД и миграции
 	database.Connect()
 	database.AutoMigrate()
 
-	// Настройка роутера Gin
-	router := gin.Default()
+	// Инициализация Gin
+	router := gin.New()
 
-	// Создаем совместимый с Gin логгер
-	gin.DisableConsoleColor()
-	gin.DefaultWriter = zap.NewStdLog(logger).Writer()
+	// Middleware паники
+	router.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+		logger.Error("Panic occurred",
+			zap.Any("error", recovered),
+			zap.String("path", c.Request.URL.Path),
+		)
+		c.AbortWithStatus(http.StatusInternalServerError)
+	}))
 
-	// Middleware для логирования запросов
+	// Логирование
 	router.Use(func(c *gin.Context) {
 		start := time.Now()
-		path := c.Request.URL.Path
-		query := c.Request.URL.RawQuery
-
 		c.Next()
-
 		logger.Info("Request",
 			zap.Int("status", c.Writer.Status()),
 			zap.String("method", c.Request.Method),
-			zap.String("path", path),
-			zap.String("query", query),
+			zap.String("path", c.Request.URL.Path),
+			zap.String("query", c.Request.URL.RawQuery),
 			zap.String("ip", c.ClientIP()),
 			zap.String("user-agent", c.Request.UserAgent()),
 			zap.Duration("latency", time.Since(start)),
 		)
 	})
 
-	// Настройка CORS
+	// CORS
 	router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:3000",
-			"https://test-iki.vercel.app/", // ← Укажи здесь свой Vercel-домен
-		},
+		AllowOrigins:     []string{"http://localhost:3000", "https://testiki-33ur.onrender.com"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true, // Важно!
+		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	// Статика
+	router.Static("/static", "./public/static")
 
 	// Публичные маршруты
 	router.POST("/register", handlers.Register)
 	router.POST("/login", handlers.Login)
 	router.POST("/logout", handlers.Logout)
 
-	// Защищенные маршруты
+	// Приватные маршруты
 	authGroup := router.Group("/")
 	authGroup.Use(AuthMiddleware())
 	{
@@ -120,8 +137,12 @@ func main() {
 		authGroup.POST("/upload-avatar", handlers.UploadAvatar)
 		authGroup.POST("/update-avatar", handlers.UpdateAvatar)
 		authGroup.DELETE("/avatar", handlers.DeleteAvatar)
-
 	}
+
+	// SPA маршруты
+	router.NoRoute(func(c *gin.Context) {
+		c.File("./public/index.html")
+	})
 
 	// Запуск сервера
 	port := os.Getenv("PORT")
@@ -129,13 +150,17 @@ func main() {
 		port = "8080"
 	}
 
-	logger.Info("Starting server",
-		zap.String("port", port),
-	)
+	srv := &http.Server{
+		Addr:         ":" + port,
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 
-	if err := router.Run(":" + port); err != nil {
-		logger.Fatal("Failed to start server",
-			zap.Error(err),
-		)
+	logger.Info("Starting server", zap.String("port", port), zap.String("environment", os.Getenv("ENV")))
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }
