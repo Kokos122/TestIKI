@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from "framer-motion";
 
 const WalkingDeadTest = ({ darkMode }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -152,6 +153,12 @@ const WalkingDeadTest = ({ darkMode }) => {
       newAnswers[currentQuestion] = value + 1;
       return newAnswers;
     });
+
+    setTimeout(() => {
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion((prev) => prev + 1);
+      }
+    }, 500);
   };
 
   const nextQuestion = () => {
@@ -197,47 +204,89 @@ const WalkingDeadTest = ({ darkMode }) => {
         <p className="text-sm text-gray-400">Вопрос {currentQuestion + 1} из {questions.length}</p>
       </div>
 
-      <div className={`p-6 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-        <p className="font-semibold flex items-center text-lg">
-          <FaQuestionCircle className="text-blue-500 mr-2" /> {questions[currentQuestion].text}
-        </p>
-        {questions[currentQuestion].options.map((option, index) => (
-          <label key={index} className="block mt-3 cursor-pointer">
-            <input
-              type="radio"
-              name={`question-${currentQuestion}`}
-              value={index}
-              checked={answers[currentQuestion] === index + 1}
-              onChange={() => handleAnswerChange(index)}
-              className="mr-2"
-            />
-            {option}
-          </label>
-        ))}
-      </div>
+      <AnimatePresence mode="wait">
+  <motion.div
+    key={currentQuestion}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -20 }}
+    transition={{ duration: 0.3 }}
+    className={`p-6 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"}`}
+  >
+    <p className="font-semibold flex items-center text-lg mb-4">
+      <FaQuestionCircle className="text-blue-500 mr-2" /> {questions[currentQuestion].text}
+    </p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {questions[currentQuestion].options.map((option, index) => {
+        const isSelected = answers[currentQuestion] === index + 1;
+        return (
+          <button
+  key={index}
+  onClick={() => handleAnswerChange(index)}
+  className={`p-6 text-base sm:text-lg rounded-xl border transition-all duration-200 text-left ${
+    isSelected
+      ? "bg-blue-500 text-white border-blue-600 shadow-lg"
+      : `${darkMode ? "bg-gray-700 text-white border-gray-600" : "bg-gray-100 border-gray-300 text-black hover:bg-gray-200"}`
+  }`}
+>
+  {option}
+</button>
+        );
+      })}
+    </div>
+  </motion.div>
+</AnimatePresence>
 
       <div className="flex justify-between mt-4">
-        <button onClick={prevQuestion} disabled={currentQuestion === 0} className="px-4 py-2 bg-gray-600 text-white rounded disabled:opacity-50">Назад</button>
-        <button onClick={nextQuestion} disabled={currentQuestion === questions.length - 1} className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50">Далее</button>
-      </div>
+  <button
+    onClick={prevQuestion}
+    disabled={currentQuestion === 0}
+    className="px-6 py-2 rounded-lg font-semibold transition-all duration-200 bg-gray-500 text-white disabled:opacity-50"
+  >
+    Назад
+  </button>
+  <button
+    onClick={nextQuestion}
+    disabled={currentQuestion === questions.length - 1}
+    className="px-6 py-2 rounded-lg font-semibold transition-all duration-200 bg-blue-500 text-white disabled:opacity-50"
+  >
+    Далее
+  </button>
+</div>
 
-      <div className="mt-6">
-        {isLoading ? (
-          <div className="flex justify-center items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : (
-          <button onClick={calculateScore} className="w-full bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Рассчитать результат</button>
-        )}
-      </div>
+<div className="mt-8 flex justify-center">
+  {isLoading ? (
+    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+  ) : (
+    <button
+      onClick={calculateScore}
+      disabled={answers.includes(null)}
+      className={`px-8 py-4 rounded-xl shadow-lg transition-all duration-200 font-semibold text-lg ${
+        answers.includes(null)
+          ? "bg-gray-400 text-white cursor-not-allowed"
+          : "bg-green-500 hover:bg-green-600 text-white"
+      }`}
+    >
+      Рассчитать результат
+    </button>
+  )}
+</div>
+
 
       {totalScore !== null && (
         <div className={`mt-6 p-6 rounded-lg shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"}`}>
           <h2 className="text-2xl font-bold">Результат:</h2>
           <p className="text-xl">{getResultText()}</p>
-          <Link to="/" className="flex items-center z-10"><button className="w-full bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Выйти на главную</button></Link>
+          
         </div>
       )}
+      <div className="mt-6">
+  <Link to="/">
+    <button className="px-5 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-md transition-all duration-200 text-base">
+      Выйти на главную
+    </button>
+  </Link>
+</div>
     </div>
   );
 };
