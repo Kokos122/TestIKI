@@ -156,110 +156,118 @@ const SmesharikiTest = ({ darkMode }) => {
   };
 
   const getResultText = () => {
-    if (totalScore <= 10) return "Вы — Лосяш";
-    if (totalScore <= 20) return "Вы — Крош";
-    if (totalScore <= 30) return "Вы — Бараш";
-    if (totalScore <= 40) return "Вы — Нюша";
-    if (totalScore <= 50) return "Вы — Копатыч";
-    if (totalScore <= 60) return "Вы — Пин";
-    if (totalScore <= 70) return "Вы — Кар-Карыч";
-    return "Вы — Ёжик";
+    if (totalScore <= 10) return "Лосяш";
+    if (totalScore <= 20) return "Крош";
+    if (totalScore <= 30) return "Бараш";
+    if (totalScore <= 40) return "Нюша";
+    if (totalScore <= 50) return "Копатыч";
+    if (totalScore <= 60) return "Пин";
+    if (totalScore <= 70) return "Кар-Карыч";
+    return "Ёжик";
   };
 
   return (
-    <div className={`container mx-auto p-4 min-h-screen ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"}`}>
-      <h1 className="text-3xl font-bold text-center mb-6">Тест какой ты Смешарик?</h1>
-
-      <div className="relative pt-1 mb-4">
-        <div className="overflow-hidden h-4 mb-2 text-xs flex rounded bg-gray-700">
-          <div style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
+    <div className={`min-h-screen p-6 transition-all duration-300 ${darkMode ? "bg-purple-900 text-white" : "bg-gradient-to-br from-pink-100 to-yellow-100 text-black"}`}>
+      <h1 className="text-4xl md:text-5xl font-extrabold text-center mb-10 tracking-tight">
+        Какой ты <span className="text-pink-500">Смешарик</span>?
+      </h1>
+  
+      <div className="relative mb-6 max-w-2xl mx-auto">
+        <div className="h-2 rounded-full bg-purple-300 overflow-hidden">
+          <div
+            className="h-full bg-pink-500 transition-all duration-500"
+            style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+          ></div>
         </div>
-        <p className="text-sm text-gray-400">Вопрос {currentQuestion + 1} из {questions.length}</p>
+        <p className="text-sm mt-2 text-center text-purple-700 font-medium">
+          Вопрос {currentQuestion + 1} из {questions.length}
+        </p>
       </div>
-
+  
       <AnimatePresence mode="wait">
-  <motion.div
-    key={currentQuestion}
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -20 }}
-    transition={{ duration: 0.3 }}
-    className={`p-6 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"}`}
-  >
-    <p className="font-semibold flex items-center text-lg mb-4">
-      <FaQuestionCircle className="text-blue-500 mr-2" /> {questions[currentQuestion].text}
-    </p>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {questions[currentQuestion].options.map((option, index) => {
-        const isSelected = answers[currentQuestion] === index + 1;
-        return (
+        <motion.div
+          key={currentQuestion}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.4 }}
+          className={`p-6 md:p-8 rounded-3xl shadow-xl max-w-3xl mx-auto ${
+            darkMode ? "bg-purple-800" : "bg-white"
+          }`}
+        >
+          <p className="font-semibold text-xl flex items-center mb-6">
+            <FaQuestionCircle className="text-pink-500 mr-2" /> {questions[currentQuestion].text}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {questions[currentQuestion].options.map((option, index) => {
+              const isSelected = answers[currentQuestion] === index + 1;
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleAnswerChange(index)}
+                  className={`p-5 md:p-6 text-base rounded-2xl border font-medium transition-all duration-200 text-left ${
+                    isSelected
+                      ? "bg-pink-500 text-white border-pink-600 shadow-xl scale-105"
+                      : `${darkMode ? "bg-purple-700 text-white border-purple-600 hover:bg-purple-600" : "bg-pink-100 border-pink-300 text-black hover:bg-pink-200"}`
+                  }`}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+  
+      <div className="flex justify-between items-center mt-8 max-w-3xl mx-auto gap-4">
+        <button
+          onClick={prevQuestion}
+          disabled={currentQuestion === 0}
+          className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 bg-purple-500 text-white disabled:opacity-40"
+        >
+          Назад
+        </button>
+        <button
+          onClick={nextQuestion}
+          disabled={currentQuestion === questions.length - 1}
+          className="px-6 py-3 rounded-xl font-semibold transition-all duration-200 bg-pink-500 text-white disabled:opacity-40"
+        >
+          Далее
+        </button>
+      </div>
+  
+      <div className="mt-10 flex justify-center">
+        {isLoading ? (
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-t-transparent border-pink-500"></div>
+        ) : (
           <button
-  key={index}
-  onClick={() => handleAnswerChange(index)}
-  className={`p-6 text-base sm:text-lg rounded-xl border transition-all duration-200 text-left ${
-    isSelected
-      ? "bg-blue-500 text-white border-blue-600 shadow-lg"
-      : `${darkMode ? "bg-gray-700 text-white border-gray-600" : "bg-gray-100 border-gray-300 text-black hover:bg-gray-200"}`
-  }`}
->
-  {option}
-</button>
-        );
-      })}
-    </div>
-  </motion.div>
-</AnimatePresence>
-
-      <div className="flex justify-between mt-4">
-  <button
-    onClick={prevQuestion}
-    disabled={currentQuestion === 0}
-    className="px-6 py-2 rounded-lg font-semibold transition-all duration-200 bg-gray-500 text-white disabled:opacity-50"
-  >
-    Назад
-  </button>
-  <button
-    onClick={nextQuestion}
-    disabled={currentQuestion === questions.length - 1}
-    className="px-6 py-2 rounded-lg font-semibold transition-all duration-200 bg-blue-500 text-white disabled:opacity-50"
-  >
-    Далее
-  </button>
-</div>
-
-<div className="mt-8 flex justify-center">
-  {isLoading ? (
-    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
-  ) : (
-    <button
-      onClick={calculateScore}
-      disabled={answers.includes(null)}
-      className={`px-8 py-4 rounded-xl shadow-lg transition-all duration-200 font-semibold text-lg ${
-        answers.includes(null)
-          ? "bg-gray-400 text-white cursor-not-allowed"
-          : "bg-green-500 hover:bg-green-600 text-white"
-      }`}
-    >
-      Рассчитать результат
-    </button>
-  )}
-</div>
-
-
+            onClick={calculateScore}
+            disabled={answers.includes(null)}
+            className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 ${
+              answers.includes(null)
+                ? "bg-purple-300 text-white cursor-not-allowed"
+                : "bg-green-400 hover:bg-green-500 text-white shadow-lg"
+            }`}
+          >
+            Узнать результат
+          </button>
+        )}
+      </div>
+  
       {totalScore !== null && (
-        <div className={`mt-6 p-6 rounded-lg shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-          <h2 className="text-2xl font-bold">Результат:</h2>
-          <p className="text-xl">{getResultText()}</p>
-          
+        <div className={`mt-10 p-6 rounded-3xl shadow-2xl text-center max-w-xl mx-auto ${darkMode ? "bg-purple-800" : "bg-yellow-100"}`}>
+          <h2 className="text-3xl font-extrabold mb-4 text-pink-600">Ты —</h2>
+          <p className="text-2xl font-semibold">{getResultText()}</p>
         </div>
       )}
-      <div className="mt-6">
-  <Link to="/">
-    <button className="px-5 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-md transition-all duration-200 text-base">
-      Выйти на главную
-    </button>
-  </Link>
-</div>
+  
+      <div className="mt-8 flex justify-center">
+        <Link to="/">
+          <button className="px-6 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl transition-all duration-200">
+            Вернуться на главную
+          </button>
+        </Link>
+      </div>
     </div>
   );
 };
