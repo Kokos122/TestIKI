@@ -107,6 +107,8 @@ func main() {
 	router.POST("/register", handlers.Register)
 	router.POST("/login", handlers.Login)
 	router.POST("/logout", handlers.Logout)
+	router.GET("/tests", handlers.GetTests)
+	router.GET("/tests/:id", handlers.GetTest)
 
 	// Защищенные маршруты
 	authGroup := router.Group("/")
@@ -117,7 +119,6 @@ func main() {
 		authGroup.POST("/upload-avatar", handlers.UploadAvatar)
 		authGroup.POST("/update-avatar", handlers.UpdateAvatar)
 		authGroup.DELETE("/avatar", handlers.DeleteAvatar)
-
 	}
 
 	// Запуск сервера

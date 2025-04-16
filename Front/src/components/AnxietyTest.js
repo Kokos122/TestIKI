@@ -1,130 +1,310 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import axios from "axios";
 import { FaQuestionCircle } from "react-icons/fa";
-import { Link } from 'react-router-dom';
 
 const AnxietyTest = ({ darkMode }) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [test, setTest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState(Array(20).fill(null));
+  const [answers, setAnswers] = useState({});
   const [totalScore, setTotalScore] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const questions = [
-    { text: "Как часто вы чувствуете беспокойство без видимой причины?", options: ["Почти никогда.", "Иногда, но это быстро проходит.", "Довольно часто.", "Постоянно, это мешает мне жить."] },
-    { text: "Как вы реагируете на неожиданные изменения в планах?", options: ["Спокойно, я легко адаптируюсь.", "Немного нервничаю, но справляюсь.", "Чувствую сильное раздражение или тревогу.", "Паникую, мне сложно взять себя в руки."] },
-    { text: "Как часто вы испытываете трудности с засыпанием из-за беспокойства?", options: ["Почти никогда.", "Иногда, но это редкое явление.", "Довольно часто.", "Каждую ночь, сон стал проблемой."] },
-    { text: "Как вы чувствуете себя в социальных ситуациях?", options: ["Комфортно, я легко общаюсь.", "Иногда немного нервничаю, но это не мешает.", "Часто чувствую напряжение и неуверенность.", "Постоянно испытываю страх и избегаю общения."] },
-    { text: "Как часто вы проверяете, выключили ли вы утюг, свет или закрыли дверь?", options: ["Почти никогда.", "Иногда, для уверенности.", "Довольно часто, чтобы успокоиться.", "Постоянно, это стало навязчивой привычкой."] },
-    { text: "Как вы реагируете на критику?", options: ["Спокойно, я воспринимаю ее как обратную связь.", "Немного переживаю, но быстро забываю.", "Долго думаю об этом и чувствую себя плохо.", "Очень болезненно, это выбивает меня из колеи."] },
-    { text: "Как часто вы чувствуете физические симптомы тревоги (учащенное сердцебиение, потливость, дрожь)?", options: ["Почти никогда.", "Редко, только в стрессовых ситуациях.", "Довольно часто.", "Постоянно, это стало частью моей жизни."] },
-    { text: "Как вы относитесь к будущему?", options: ["Спокойно, я уверен(а) в себе.", "Иногда немного переживаю, но стараюсь не думать об этом.", "Часто чувствую беспокойство и страх.", "Постоянно думаю о худшем, это меня парализует."] },
-    { text: "Как часто вы избегаете ситуаций, которые вызывают у вас тревогу?", options: ["Почти никогда.", "Иногда, если ситуация слишком стрессовая.", "Довольно часто.", "Постоянно, это ограничивает мою жизнь."] },
-    { text: "Как вы справляетесь с трудностями?", options: ["Легко, я уверен(а) в своих силах.", "Иногда нервничаю, но нахожу решение.", "Часто чувствую себя подавленным(ой).", "Обычно впадаю в панику и не могу действовать."] },
-    { text: "Как часто вы чувствуете себя уставшим(ой) без видимой причины?", options: ["Почти никогда.", "Иногда, но это быстро проходит.", "Довольно часто.", "Постоянно, усталость стала постоянной."] },
-    { text: "Как вы относитесь к неопределенности?", options: ["Спокойно, я принимаю ее как часть жизни.", "Иногда немного нервничаю, но справляюсь.", "Чувствую сильное беспокойство.", "Не могу справиться, это вызывает панику."] },
-    { text: "Как часто вы чувствуете, что не можете расслабиться?", options: ["Почти никогда.", "Иногда, но это быстро проходит.", "Довольно часто.", "Постоянно, расслабление стало невозможным."] },
-    { text: "Как вы реагируете на мелкие неудачи?", options: ["Спокойно, это часть жизни.", "Немного расстраиваюсь, но быстро забываю.", "Долго переживаю и чувствую себя плохо.", "Очень болезненно, это выбивает меня из колеи."] },
-    { text: "Как часто вы чувствуете себя раздраженным(ой) без причины?", options: ["Почти никогда.", "Иногда, но это быстро проходит.", "Довольно часто.", "Постоянно, раздражение стало нормой."] },
-    { text: "Как вы относитесь к своим мыслям?", options: ["Спокойно, я контролирую их.", "Иногда они меня беспокоят, но я справляюсь.", "Часто чувствую, что мысли выходят из-под контроля.", "Постоянно, это вызывает сильную тревогу."] },
-    { text: "Как часто вы чувствуете, что не можете сосредоточиться?", options: ["Почти никогда.", "Иногда, но это быстро проходит.", "Довольно часто.", "Постоянно, это мешает мне работать или учиться."] },
-    { textn: "Как вы относитесь к своим страхам?", options: ["Спокойно, я их принимаю.", "Иногда они меня беспокоят, но я справляюсь.", "Часто чувствую, что страхи контролируют меня.", "Постоянно, это вызывает панику."] },
-    { text: "Как часто вы чувствуете, что не можете справиться с ситуацией?", options: ["Почти никогда.", "Иногда, но я нахожу выход.", "Довольно часто.", "Постоянно, это вызывает чувство беспомощности."] },
-    { text: "Как вы оцениваете общий уровень своей тревожности?", options: ["Низкий, я почти никогда не тревожусь.", "Умеренный, иногда я чувствую беспокойство.", "Высокий, я часто испытываю тревогу.", "Очень высокий, тревога стала частью моей жизни."] },
-  ];
+  // Загрузка теста из API
+  useEffect(() => {
+    if (!id) {
+      setError("Test ID is missing");
+      setLoading(false);
+      return;
+    }
 
-  const handleAnswerChange = (value) => {
-      setAnswers((prevAnswers) => {
-        const newAnswers = [...prevAnswers];
-        newAnswers[currentQuestion] = value + 1;
-        return newAnswers;
+    const fetchTest = async () => {
+      try {
+        const response = await axios.get(`http://localhost:8080/tests/${id}`);
+        if (!response.data.test) {
+          throw new Error("Test data is empty");
+        }
+        setTest(response.data.test);
+      } catch (err) {
+        console.error("Error fetching test:", err);
+        setError(err.response?.data?.error || "Failed to load test");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTest();
+  }, [id]);
+
+  // Обработка выбора ответа
+  const handleAnswerChange = (questionId, value) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: value,
+    }));
+  };
+
+  // Подсчет результатов
+  const calculateScore = async () => {
+    if (!test) return;
+
+    // Проверка, что на все вопросы ответили
+    const questions = JSON.parse(test.questions);
+    if (Object.keys(answers).length < questions.length) {
+      setError("Please answer all questions");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Здесь должна быть ваша логика подсчета баллов
+      // Для примера - простой подсчет
+      let score = 0;
+      questions.forEach((q, index) => {
+        if (answers[q.id] !== undefined) score += answers[q.id] + 1;
       });
-    };
-  
-    const nextQuestion = () => {
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion(currentQuestion + 1);
-      }
-    };
-  
-    const prevQuestion = () => {
-      if (currentQuestion > 0) {
-        setCurrentQuestion(currentQuestion - 1);
-      }
-    };
-  
-    const calculateScore = () => {
-      if (answers.some((answer) => answer === null)) {
-        alert("Пожалуйста, ответьте на все вопросы!");
-        return;
-      }
-      setIsLoading(true);
-      setTimeout(() => {
-        const score = answers.reduce((sum, answer) => sum + answer, 0);
-        setTotalScore(score);
-        setIsLoading(false);
-      }, 1000);
-    };
-  
-    const getResultText = () => {
-      if (totalScore <= 15) return "Низкий уровень тревожности. Вы спокойны и уверены в себе.";
-      if (totalScore <= 30) return "Умеренный уровень тревожности. Иногда вы чувствуете беспокойство, но в целом справляетесь.";
-      if (totalScore <= 45) return "Высокий уровень тревожности. Вам стоит обратить внимание на свое состояние и, возможно, обратиться за помощью.";
-      return "Очень высокий уровень тревожности. Тревога значительно влияет на вашу жизнь, и вам важно обратиться к специалисту.";
-    };
-  
+      score = Math.round((score / (questions.length * 4)) * 100);
+
+      // Отправка результатов на сервер
+      const response = await axios.post(
+        "http://localhost:8080/test-result",
+        {
+          test_id: test.id,
+          test_name: test.title,
+          score: score,
+          result_text: getResultText(score),
+          answers: answers,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      setTotalScore(score);
+    } catch (err) {
+      console.error("Error saving results:", err);
+      setError("Failed to save test results");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getResultText = (score) => {
+    if (score <= 30) return "Низкий уровень тревожности";
+    if (score <= 70) return "Средний уровень тревожности";
+    return "Высокий уровень тревожности";
+  };
+
+  if (loading) {
     return (
-      <div className={`container mx-auto p-4 min-h-screen ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"}`}>
-        <h1 className="text-3xl font-bold text-center mb-6">Тест на тревожность</h1>
-  
-        <div className="relative pt-1 mb-4">
-          <div className="overflow-hidden h-4 mb-2 text-xs flex rounded bg-gray-700">
-            <div style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
-          </div>
-          <p className="text-sm text-gray-400">Вопрос {currentQuestion + 1} из {questions.length}</p>
-        </div>
-  
-        <div className={`p-6 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-          <p className="font-semibold flex items-center text-lg">
-            <FaQuestionCircle className="text-blue-500 mr-2" /> {questions[currentQuestion].text}
-          </p>
-          {questions[currentQuestion].options.map((option, index) => (
-            <label key={index} className="block mt-3 cursor-pointer">
-              <input
-                type="radio"
-                name={`question-${currentQuestion}`}
-                value={index}
-                checked={answers[currentQuestion] === index + 1}
-                onChange={() => handleAnswerChange(index)}
-                className="mr-2"
-              />
-              {option}
-            </label>
-          ))}
-        </div>
-  
-        <div className="flex justify-between mt-4">
-          <button onClick={prevQuestion} disabled={currentQuestion === 0} className="px-4 py-2 bg-gray-600 text-white rounded disabled:opacity-50">Назад</button>
-          <button onClick={nextQuestion} disabled={currentQuestion === questions.length - 1} className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50">Далее</button>
-        </div>
-  
-        <div className="mt-6">
-          {isLoading ? (
-            <div className="flex justify-center items-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-          ) : (
-            <button onClick={calculateScore} className="w-full bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Рассчитать результат</button>
-          )}
-        </div>
-  
-        {totalScore !== null && (
-          <div className={`mt-6 p-6 rounded-lg shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-            <h2 className="text-2xl font-bold">Результат:</h2>
-            <p className="text-xl">{getResultText()}</p>
-            <Link to="/" className="flex items-center z-10"><button className="w-full bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Выйти на главную</button></Link>
-          </div>
-        )}
+      <div
+        className={`flex justify-center items-center h-screen ${
+          darkMode ? "bg-gray-900" : "bg-gray-100"
+        }`}
+      >
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
-  };
-  
-  export default AnxietyTest;
+  }
+
+  if (error) {
+    return (
+      <div
+        className={`flex flex-col justify-center items-center h-screen p-4 ${
+          darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
+        }`}
+      >
+        <h2 className="text-2xl font-bold mb-4">Error</h2>
+        <p className="text-red-500 mb-6">{error}</p>
+        <button
+          onClick={() => navigate("/tests")}
+          className={`px-4 py-2 rounded ${
+            darkMode
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "bg-blue-500 hover:bg-blue-600"
+          } text-white`}
+        >
+          Back to Tests
+        </button>
+      </div>
+    );
+  }
+
+  if (!test) {
+    return (
+      <div
+        className={`flex flex-col justify-center items-center h-screen ${
+          darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
+        }`}
+      >
+        <h2 className="text-2xl font-bold mb-4">Test not found</h2>
+        <button
+          onClick={() => navigate("/tests")}
+          className={`px-4 py-2 rounded ${
+            darkMode
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "bg-blue-500 hover:bg-blue-600"
+          } text-white`}
+        >
+          Back to Tests
+        </button>
+      </div>
+    );
+  }
+
+  const questions = JSON.parse(test.questions);
+
+  return (
+    <div
+      className={`container mx-auto p-4 min-h-screen ${
+        darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
+      }`}
+    >
+      <h1 className="text-3xl font-bold text-center mb-6">{test.title}</h1>
+
+      {totalScore !== null ? (
+        <div
+          className={`p-6 rounded-lg shadow-lg ${
+            darkMode ? "bg-gray-800" : "bg-white"
+          }`}
+        >
+          <h2 className="text-2xl font-bold">Результат:</h2>
+          <p className="text-xl mt-2">
+            Ваш результат: {totalScore}% - {getResultText(totalScore)}
+          </p>
+          <div className="mt-6">
+            <Link
+              to="/profile"
+              className={`px-4 py-2 rounded-lg ${
+                darkMode
+                  ? "bg-indigo-600 hover:bg-indigo-700"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              } text-white mr-4`}
+            >
+              Посмотреть в профиле
+            </Link>
+            <Link
+              to="/tests"
+              className={`px-4 py-2 rounded-lg ${
+                darkMode
+                  ? "bg-gray-600 hover:bg-gray-500"
+                  : "bg-gray-200 hover:bg-gray-300"
+              }`}
+            >
+              К списку тестов
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="relative pt-1 mb-4">
+            <div
+              className={`overflow-hidden h-4 mb-2 text-xs flex rounded ${
+                darkMode ? "bg-gray-700" : "bg-gray-300"
+              }`}
+            >
+              <div
+                style={{
+                  width: `${((currentQuestion + 1) / questions.length) * 100}%`,
+                }}
+                className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${
+                  darkMode ? "bg-blue-500" : "bg-blue-600"
+                }`}
+              ></div>
+            </div>
+            <p
+              className={`text-sm ${
+                darkMode ? "text-gray-400" : "text-gray-600"
+              }`}
+            >
+              Вопрос {currentQuestion + 1} из {questions.length}
+            </p>
+          </div>
+
+          <div
+            className={`p-6 rounded-lg shadow-md ${
+              darkMode ? "bg-gray-800" : "bg-white"
+            }`}
+          >
+            <p className="font-semibold flex items-center text-lg">
+              <FaQuestionCircle
+                className={`mr-2 ${darkMode ? "text-blue-400" : "text-blue-600"}`}
+              />{" "}
+              {questions[currentQuestion].text}
+            </p>
+            {questions[currentQuestion].options.map((option, index) => (
+              <label key={index} className="block mt-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`question-${questions[currentQuestion].id}`}
+                  checked={
+                    answers[questions[currentQuestion].id] === index
+                  }
+                  onChange={() =>
+                    handleAnswerChange(questions[currentQuestion].id, index)
+                  }
+                  className="mr-2"
+                />
+                {option}
+              </label>
+            ))}
+          </div>
+
+          <div className="flex justify-between mt-4">
+            <button
+              onClick={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
+              disabled={currentQuestion === 0}
+              className={`px-4 py-2 rounded ${
+                darkMode
+                  ? "bg-gray-600 hover:bg-gray-500 disabled:opacity-50"
+                  : "bg-gray-300 hover:bg-gray-400 disabled:opacity-50"
+              }`}
+            >
+              Назад
+            </button>
+            {currentQuestion < questions.length - 1 ? (
+              <button
+                onClick={() =>
+                  setCurrentQuestion((prev) => Math.min(questions.length - 1, prev + 1))
+                }
+                className={`px-4 py-2 rounded ${
+                  darkMode ? "bg-blue-600 hover:bg-blue-500" : "bg-blue-600 hover:bg-blue-700"
+                } text-white`}
+              >
+                Далее
+              </button>
+            ) : (
+              <button
+                onClick={calculateScore}
+                disabled={isSubmitting}
+                className={`px-4 py-2 rounded ${
+                  darkMode
+                    ? "bg-green-600 hover:bg-green-500 disabled:opacity-50"
+                    : "bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                } text-white`}
+              >
+                {isSubmitting ? "Отправка..." : "Завершить тест"}
+              </button>
+            )}
+          </div>
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-100 text-red-700 rounded">
+              {error}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+export default AnxietyTest;

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"myproject/auth"
@@ -181,37 +182,6 @@ func GetCurrentUser(c *gin.Context) {
 	})
 }
 
-func SaveTestResult(c *gin.Context) {
-	username := c.MustGet("username").(string)
-	var req TestResultRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
-		return
-	}
-
-	var user database.User
-	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-
-	testResult := database.TestResult{
-		UserID:      user.ID,
-		TestName:    req.TestName,
-		Score:       req.Score,
-		ResultText:  req.ResultText,
-		CompletedAt: time.Now(),
-	}
-
-	if err := database.DB.Create(&testResult).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save test result"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"message": "Test result saved successfully"})
-}
-
 func UploadAvatar(c *gin.Context) {
 	username := c.MustGet("username").(string)
 
@@ -389,5 +359,87 @@ func Logout(c *gin.Context) {
 	// Здесь можно добавить логику инвалидации токена, если нужно
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Logged out successfully",
+	})
+}
+
+// Получение списка тестов
+func GetTests(c *gin.Context) {
+	var tests []database.Test
+	if err := database.DB.Where("is_active = ?", true).Find(&tests).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tests"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"tests": tests})
+}
+
+// Получение конкретного теста
+func GetTest(c *gin.Context) {
+	testID := c.Param("id")
+
+	var test database.Test
+	result := database.DB.First(&test, testID)
+	if result.Error != nil {
+		log.Printf("Error fetching test ID %s: %v", testID, result.Error)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Test not found"})
+		return
+	}
+
+	// Добавьте логирование
+	log.Printf("Found test: %+v", test)
+
+	c.JSON(http.StatusOK, gin.H{"test": test})
+}
+
+// Сохранение результатов теста (обновленная версия)
+func SaveTestResult(c *gin.Context) {
+	username := c.MustGet("username").(string)
+	var req struct {
+		TestID     uint                   `json:"test_id" binding:"required"`
+		TestName   string                 `json:"test_name" binding:"required"`
+		Score      int                    `json:"score" binding:"required"`
+		ResultText string                 `json:"result_text" binding:"required"`
+		Answers    map[string]interface{} `json:"answers"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	var user database.User
+	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	answersJSON, err := json.Marshal(req.Answers)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not process answers"})
+		return
+	}
+
+	testResult := database.TestResult{
+		UserID:      user.ID,
+		TestID:      req.TestID,
+		TestName:    req.TestName,
+		Score:       req.Score,
+		ResultText:  req.ResultText,
+		Answers:     answersJSON,
+		CompletedAt: time.Now(),
+	}
+
+	if err := database.DB.Create(&testResult).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save test result"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Test result saved successfully",
+		"result": gin.H{
+			"id":          testResult.ID,
+			"test_id":     testResult.TestID,
+			"score":       testResult.Score,
+			"result_text": testResult.ResultText,
+		},
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -20,13 +21,26 @@ type User struct {
 	TestResults []TestResult `json:"test_results" gorm:"foreignKey:UserID"`
 }
 
+type Test struct {
+	gorm.Model
+	Title        string         `json:"title"`
+	Description  string         `json:"description"`
+	Category     string         `json:"category"`
+	Questions    datatypes.JSON `json:"questions" gorm:"type:jsonb"`
+	ScoringRules datatypes.JSON `json:"scoring_rules" gorm:"type:jsonb"`
+	TimeLimit    int            `json:"time_limit"`
+	IsActive     bool           `json:"is_active" gorm:"default:true"`
+}
+
 type TestResult struct {
 	gorm.Model
-	UserID      uint      `json:"user_id"`
-	TestName    string    `json:"test_name"`
-	Score       int       `json:"score"`
-	ResultText  string    `json:"result_text"`
-	CompletedAt time.Time `json:"completed_at"`
+	UserID      uint           `json:"user_id"`
+	TestID      uint           `json:"test_id"`
+	TestName    string         `json:"test_name"`
+	Score       int            `json:"score"`
+	ResultText  string         `json:"result_text"`
+	Answers     datatypes.JSON `json:"answers" gorm:"type:jsonb"`
+	CompletedAt time.Time      `json:"completed_at"`
 }
 
 func (u *User) HashPassword() error {
