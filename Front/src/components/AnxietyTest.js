@@ -52,12 +52,12 @@ const AnxietyTest = ({ darkMode }) => {
     setIsSubmitting(true);
     
     try {
-      // 1. Проверяем наличие scoring
+      // 1. Проверяем наличие scoring_rules
       if (!test?.scoring_rules) {
         throw new Error("Правила оценки не найдены в данных теста");
       }
-
-      // 2. Парсим scoring (если это строка JSON)
+  
+      // 2. Парсим scoring_rules (если это строка JSON)
       let scoringData = test.scoring_rules;
       if (typeof scoringData === 'string') {
         try {
@@ -66,31 +66,37 @@ const AnxietyTest = ({ darkMode }) => {
           throw new Error("Не удалось распарсить правила оценки");
         }
       }
-
+  
       // 3. Проверяем структуру scoringData
       if (!scoringData || typeof scoringData !== 'object') {
         throw new Error("Некорректный формат правил оценки");
       }
-
-      // 4. Проверяем ranges
-      if (!Array.isArray(scoringData.ranges)) {
+  
+      // 4. Получаем объект scoring из scoringData
+      const scoring = scoringData.scoring;
+      if (!scoring) {
+        throw new Error("Отсутствует объект scoring в правилах оценки");
+      }
+  
+      // 5. Проверяем ranges
+      if (!Array.isArray(scoring.ranges)) {
         throw new Error("Отсутствует или некорректен массив ranges в правилах оценки");
       }
-
-      // 5. Рассчитываем сырой балл
+  
+      // 6. Рассчитываем сырой балл
       const rawScore = Object.values(answers).reduce((sum, answer) => sum + (answer || 0), 0);
       
-      // 6. Рассчитываем максимально возможный балл
+      // 7. Рассчитываем максимально возможный балл
       const maxScore = questions.length * 3;
       
-      // 7. Масштабируем к диапазону 0-60 (как в ваших scoring.ranges)
+      // 8. Масштабируем к диапазону 0-60 (как в ваших scoring.ranges)
       const scaledScore = Math.min(Math.round((rawScore / maxScore) * 60), 60);
       
-      // 8. Находим соответствующий диапазон
-      const matchedRange = scoringData.ranges.find(
+      // 9. Находим соответствующий диапазон
+      const matchedRange = scoring.ranges.find(
         range => scaledScore >= (range.min || 0) && scaledScore <= range.max
       );
-
+  
       setTotalScore(scaledScore);
       setResultData({
         text: matchedRange?.text || `Результат ${scaledScore}% не попадает в заданные диапазоны`,
