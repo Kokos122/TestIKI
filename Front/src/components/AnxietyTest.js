@@ -52,12 +52,10 @@ const AnxietyTest = ({ darkMode }) => {
     setIsSubmitting(true);
     
     try {
-      // 1. Проверяем наличие scoring_rules
       if (!test?.scoring_rules) {
         throw new Error("Правила оценки не найдены в данных теста");
       }
   
-      // 2. Парсим scoring_rules (если это строка JSON)
       let scoringData = test.scoring_rules;
       if (typeof scoringData === 'string') {
         try {
@@ -67,40 +65,32 @@ const AnxietyTest = ({ darkMode }) => {
         }
       }
   
-      // 3. Проверяем структуру scoringData
       if (!scoringData || typeof scoringData !== 'object') {
         throw new Error("Некорректный формат правил оценки");
       }
   
-      // 4. Получаем объект scoring из scoringData
       const scoring = scoringData.scoring;
       if (!scoring) {
         throw new Error("Отсутствует объект scoring в правилах оценки");
       }
   
-      // 5. Проверяем ranges
       if (!Array.isArray(scoring.ranges)) {
         throw new Error("Отсутствует или некорректен массив ranges в правилах оценки");
       }
   
-      // 6. Рассчитываем сырой балл
       const rawScore = Object.values(answers).reduce((sum, answer) => sum + (answer || 0), 0);
       
-      // 7. Рассчитываем максимально возможный балл
-      const maxScore = questions.length * 3;
+      // Убрано масштабирование к процентам
+      const finalScore = rawScore;
       
-      // 8. Масштабируем к диапазону 0-60 (как в ваших scoring.ranges)
-      const scaledScore = Math.min(Math.round((rawScore / maxScore) * 60), 60);
-      
-      // 9. Находим соответствующий диапазон
       const matchedRange = scoring.ranges.find(
-        range => scaledScore >= (range.min || 0) && scaledScore <= range.max
+        range => finalScore >= (range.min || 0) && finalScore <= range.max
       );
   
-      setTotalScore(scaledScore);
+      setTotalScore(finalScore);
       setResultData({
-        text: matchedRange?.text || `Результат ${scaledScore}% не попадает в заданные диапазоны`,
-        description: "",
+        text: matchedRange?.text || `Результат ${finalScore} не попадает в заданные диапазоны`,
+        description: matchedRange?.description || "",
       });
     } catch (err) {
       console.error("Error calculating score:", err);
@@ -154,7 +144,7 @@ const AnxietyTest = ({ darkMode }) => {
         <>
           <h2 className="text-2xl font-bold">Результат:</h2>
           <p className="text-xl mt-2">
-            Ваш результат: {totalScore}% - {resultData?.text || "Не определено"}
+            {resultData?.text || "Не определено"}
           </p>
           {resultData?.description && (
             <p className="mt-2 text-gray-600 dark:text-gray-300">{resultData.description}</p>
@@ -162,25 +152,12 @@ const AnxietyTest = ({ darkMode }) => {
         </>
       }
       onHome={() => navigate("/")}
-    >
-      <p className="font-semibold flex items-center text-lg">
-        {currentQuestionData.text}
-      </p>
-      <div className="mt-4 space-y-3">
-        {currentQuestionData.options.map((option, index) => (
-          <label key={index} className="block cursor-pointer">
-            <input
-              type="radio"
-              name={`question-${currentQuestionData.id}`}
-              checked={answers[currentQuestionData.id] === index}
-              onChange={() => handleAnswerChange(currentQuestionData.id, index)}
-              className="mr-2"
-            />
-            {option}
-          </label>
-        ))}
-      </div>
-    </TestLayout>
+      currentQuestionData={currentQuestionData} // Передаем как пропс
+      answers={answers}
+      handleAnswerChange={handleAnswerChange}
+      isLoading={loading}
+      error={error}
+    />
   );
 };
 
