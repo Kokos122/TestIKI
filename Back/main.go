@@ -107,7 +107,6 @@ func main() {
 	router.POST("/register", handlers.Register)
 	router.POST("/login", handlers.Login)
 	router.POST("/logout", handlers.Logout)
-	router.GET("/tests", handlers.GetTests)
 	router.GET("/tests/:id", handlers.GetTest)
 
 	// Защищенные маршруты

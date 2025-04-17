@@ -377,15 +377,13 @@ func GetTest(c *gin.Context) {
 	testID := c.Param("id")
 
 	var test database.Test
-	result := database.DB.First(&test, testID)
+	result := database.DB.Table("tests").Where("id = ?", testID).First(&test)
+
 	if result.Error != nil {
-		log.Printf("Error fetching test ID %s: %v", testID, result.Error)
+		log.Printf("Error fetching test: %v", result.Error)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Test not found"})
 		return
 	}
-
-	// Добавьте логирование
-	log.Printf("Found test: %+v", test)
 
 	c.JSON(http.StatusOK, gin.H{"test": test})
 }

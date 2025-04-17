@@ -22,7 +22,7 @@ type User struct {
 }
 
 type Test struct {
-	gorm.Model
+	ID           uint           `gorm:"primaryKey" json:"id"`
 	Title        string         `json:"title"`
 	Description  string         `json:"description"`
 	Category     string         `json:"category"`
@@ -30,6 +30,8 @@ type Test struct {
 	ScoringRules datatypes.JSON `json:"scoring_rules" gorm:"type:jsonb"`
 	TimeLimit    int            `json:"time_limit"`
 	IsActive     bool           `json:"is_active" gorm:"default:true"`
+	CreatedAt    time.Time      `json:"created_at" gorm:"default:now()"`
+	UpdatedAt    time.Time      `json:"updated_at" gorm:"default:now()"`
 }
 
 type TestResult struct {

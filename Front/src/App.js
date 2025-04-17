@@ -202,7 +202,7 @@ const App = () => {
               onThemeToggle={toggleTheme}
             />
           } />
-          <Route path="/anxiety-test" element={<AnxietyTest darkMode={darkMode} />} />
+          <Route path="/anxiety-test/:id" element={<AnxietyTest darkMode={darkMode} />} />
           <Route path="/love-test" element={<LoveTest darkMode={darkMode} />} />
           <Route path="/career-test" element={<CareerTest darkMode={darkMode} />} />
           <Route path="/logic-test" element={<LogicTest darkMode={darkMode} />} />
