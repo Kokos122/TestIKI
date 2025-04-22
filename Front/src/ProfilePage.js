@@ -28,8 +28,11 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [sortBy, setSortBy] = useState('date');
+    const [filterCategory, setFilterCategory] = useState('all');
     const [activeTab, setActiveTab] = useState('stats');
     const [isHovered, setIsHovered] = useState(false);
+    const [isLoadingResults, setIsLoadingResults] = useState(false);
+    const [selectedResult, setSelectedResult] = useState(null);
     const navigate = useNavigate();
     const [ref, inView] = useInView({
         threshold: 0.1,
@@ -75,18 +78,22 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
     // Загрузка результатов тестов
     useEffect(() => {
         const fetchTestResults = async () => {
+            setIsLoadingResults(true);
             try {
                 const token = localStorage.getItem('token');
-                const response = await axios.get('http://localhost:8080/me', {
+                const response = await axios.get('http://localhost:8080/user/test-results', {
                     headers: { 
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     }
                 });
-                setTestResults(response.data.user.test_results || []);
+                setTestResults(response.data.test_results || []);
             } catch (error) {
                 console.error('Error fetching test results:', error);
                 setError('Не удалось загрузить результаты тестов');
+                toast.error('Не удалось загрузить результаты тестов');
+            } finally {
+                setIsLoadingResults(false);
             }
         };
         
@@ -109,7 +116,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
     const COLORS = ['#10B981', '#F59E0B', '#EF4444'];
 
     const testCategories = testResults.reduce((acc, result) => {
-        const category = result.testName.split(' ')[0];
+        const category = result.category || 'Без категории';
         acc[category] = (acc[category] || 0) + 1;
         return acc;
     }, {});
@@ -119,12 +126,21 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
         value
     }));
 
-    // Сортировка результатов
+    // Сортировка и фильтрация результатов
     const sortedResults = [...testResults].sort((a, b) => {
-        if (sortBy === 'date') return new Date(b.completedAt) - new Date(a.completedAt);
+        if (sortBy === 'date') return new Date(b.completed_at) - new Date(a.completed_at);
         if (sortBy === 'score') return b.score - a.score;
-        return a.testName.localeCompare(b.testName);
+        return a.test_name.localeCompare(b.test_name);
     });
+
+    const filteredResults = filterCategory === 'all' 
+        ? sortedResults 
+        : sortedResults.filter(r => r.category === filterCategory);
+
+    // Просмотр деталей теста
+    const viewTestDetails = (result) => {
+        setSelectedResult(result);
+    };
 
     // Выход из аккаунта
     const handleLogoutClick = () => {
@@ -236,6 +252,71 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
         { id: 1, name: 'Тест на логику', category: 'Логика', icon: FaChartLine },
         { id: 2, name: 'Тест по психологии', category: 'Психология', icon: FaChartLine },
     ];
+
+    // Компонент ProgressBar
+    const ProgressBar = ({ score }) => (
+        <div className={`h-2 rounded-full ${
+            darkMode ? 'bg-gray-700' : 'bg-gray-200'
+        } mt-2`}>
+            <div 
+                className={`h-full rounded-full ${
+                    score >= 70 ? 'bg-green-500' : 
+                    score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                }`}
+                style={{ width: `${score}%` }}
+            />
+        </div>
+    );
+
+    // Компонент TestResultCard
+    const TestResultCard = ({ result, darkMode, onViewDetails }) => (
+        <div className={`p-4 rounded-lg border ${
+            darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'
+        }`}>
+            <div className="flex justify-between items-start">
+                <div>
+                    <h3 className="font-medium">{result.test_name}</h3>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {new Date(result.completed_at).toLocaleDateString()}
+                        {result.category && ` • ${result.category}`}
+                    </p>
+                    <ProgressBar score={result.score} />
+                </div>
+                <div className={`text-lg font-bold ${
+                    result.score >= 70 ? (darkMode ? 'text-green-400' : 'text-green-600') :
+                    result.score >= 40 ? (darkMode ? 'text-yellow-400' : 'text-yellow-600') :
+                    (darkMode ? 'text-red-400' : 'text-red-600')
+                }`}>
+                    {result.score}%
+                </div>
+            </div>
+            <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                {result.result_text}
+            </p>
+            <div className="mt-3 flex justify-between items-center">
+                <button 
+                    onClick={() => onViewDetails(result)}
+                    className={`text-sm ${
+                        darkMode ? 'text-blue-400 hover:text-blue-300' : 
+                        'text-blue-600 hover:text-blue-800'
+                    }`}
+                >
+                    Подробнее
+                </button>
+                <button 
+                    onClick={() => navigator.clipboard.writeText(
+                        `Я набрал ${result.score}% в тесте "${result.test_name}"`
+                    )}
+                    className={`text-sm ${
+                        darkMode ? 'text-gray-400 hover:text-gray-300' : 
+                        'text-gray-600 hover:text-gray-800'
+                    }`}
+                >
+                    Поделиться
+                </button>
+            </div>
+        </div>
+    );
 
     if (!user) {
         navigate('/');
@@ -787,23 +868,21 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
                                 transition={{ duration: 0.5 }}
                                 className="space-y-6"
                             >
-                                {/* Сортировка результатов */}
-                                <div className={`p-4 rounded-2xl shadow-xl ${
+                                {/* Фильтры и сортировка */}
+                                <div className={`p-6 rounded-2xl shadow-xl ${
                                     darkMode 
                                         ? "bg-gray-800/80 backdrop-blur-sm border border-gray-700" 
                                         : "bg-white border border-gray-200"
                                 }`}>
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-lg font-medium">
-                                            Показано {testResults.length} результатов
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <h3 className="text-xl font-bold">
+                                            История прохождения тестов
                                         </h3>
-                                        <div className="flex items-center">
-                                            <FaSort className={`mr-2 ${
-                                                darkMode ? "text-gray-400" : "text-gray-500"
-                                            }`} />
-                                            <select 
+                                        <div className="flex space-x-3">
+                                            <select
+                                                value={sortBy}
                                                 onChange={(e) => setSortBy(e.target.value)}
-                                                className={`p-2 rounded border text-sm ${
+                                                className={`px-3 py-2 rounded border text-sm ${
                                                     darkMode 
                                                         ? "bg-gray-700 border-gray-600 text-white" 
                                                         : "bg-white border-gray-300 text-gray-800"
@@ -813,79 +892,38 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
                                                 <option value="score">По баллам</option>
                                                 <option value="name">По названию</option>
                                             </select>
+                                            <select
+                                                value={filterCategory}
+                                                onChange={(e) => setFilterCategory(e.target.value)}
+                                                className={`px-3 py-2 rounded border text-sm ${
+                                                    darkMode 
+                                                        ? "bg-gray-700 border-gray-600 text-white" 
+                                                        : "bg-white border-gray-300 text-gray-800"
+                                                }`}
+                                            >
+                                                <option value="all">Все категории</option>
+                                                <option value="psychology">Психология</option>
+                                                <option value="logic">Логика</option>
+                                                {/* Добавьте другие категории */}
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Список результатов */}
-                                {sortedResults.length > 0 ? (
+                                {isLoadingResults ? (
+                                    <div className="flex justify-center py-12">
+                                        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+                                    </div>
+                                ) : filteredResults.length > 0 ? (
                                     <div className="space-y-4">
-                                        {sortedResults.map((result, index) => (
-                                            <motion.div 
-                                                key={index}
-                                                initial={{ opacity: 0, y: 20 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ duration: 0.3, delay: index * 0.05 }}
-                                                whileHover={{ scale: 1.01 }}
-                                                className={`p-5 rounded-xl shadow-lg transition ${
-                                                    darkMode 
-                                                        ? "bg-gray-800/80 backdrop-blur-sm border border-gray-700 hover:border-indigo-500/50" 
-                                                        : "bg-white border border-gray-200 hover:border-indigo-300"
-                                                }`}
-                                            >
-                                                <div className="flex flex-col md:flex-row md:items-center justify-between">
-                                                    <div className="mb-4 md:mb-0">
-                                                        <h4 className="font-medium text-lg">{result.testName}</h4>
-                                                        <p className={`text-sm ${
-                                                            darkMode ? "text-gray-400" : "text-gray-600"
-                                                        }`}>
-                                                            {result.resultText}
-                                                        </p>
-                                                        <p className={`text-xs ${
-                                                            darkMode ? "text-gray-500" : "text-gray-400"
-                                                        }`}>
-                                                            {new Date(result.completedAt).toLocaleDateString('ru-RU', {
-                                                                day: 'numeric',
-                                                                month: 'long',
-                                                                year: 'numeric',
-                                                                hour: '2-digit',
-                                                                minute: '2-digit'
-                                                            })}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl ${
-                                                            result.score >= 80 ? 'bg-green-500' :
-                                                            result.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                                                        }`}>
-                                                            {result.score}%
-                                                        </div>
-                                                        <div className="ml-4">
-                                                            <button
-                                                                onClick={() => {
-                                                                    navigator.clipboard.writeText(`Я набрал ${result.score}% в тесте "${result.testName}"`);
-                                                                    toast.success('Результат скопирован!');
-                                                                }}
-                                                                className={`p-2 rounded-full ${
-                                                                    darkMode ? "hover:bg-gray-700" : "hover:bg-gray-200"
-                                                                } transition`}
-                                                                title="Поделиться"
-                                                            >
-                                                                <FaCopy className={darkMode ? "text-gray-400" : "text-gray-500"} />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => navigate(`/test/${result.testId}/results`)}
-                                                                className={`p-2 rounded-full ${
-                                                                    darkMode ? "hover:bg-gray-700" : "hover:bg-gray-200"
-                                                                } transition ml-2`}
-                                                                title="Подробнее"
-                                                            >
-                                                                <FaInfoCircle className={darkMode ? "text-gray-400" : "text-gray-500"} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
+                                        {filteredResults.map((result) => (
+                                            <TestResultCard 
+                                                key={result.id}
+                                                result={result}
+                                                darkMode={darkMode}
+                                                onViewDetails={viewTestDetails}
+                                            />
                                         ))}
                                     </div>
                                 ) : (
@@ -894,10 +932,18 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
                                             ? "bg-gray-800/80 backdrop-blur-sm border border-gray-700" 
                                             : "bg-white border border-gray-200"
                                     }`}>
-                                        <h4 className="text-xl font-medium mb-2">Вы еще не прошли ни одного теста!</h4>
+                                        <h4 className="text-xl font-medium mb-2">
+                                            {testResults.length === 0 
+                                                ? 'Вы еще не прошли ни одного теста'
+                                                : 'Нет результатов по выбранному фильтру'}
+                                        </h4>
                                         <p className={`mb-4 ${
                                             darkMode ? "text-gray-400" : "text-gray-500"
-                                        }`}>Пройдите тесты, чтобы увидеть здесь свои результаты</p>
+                                        }`}>
+                                            {testResults.length === 0
+                                                ? 'Пройдите тесты, чтобы увидеть здесь свои результаты'
+                                                : 'Попробуйте изменить параметры фильтрации'}
+                                        </p>
                                         <button 
                                             onClick={() => navigate('/tests')}
                                             className={`px-6 py-2 rounded-lg transition ${
@@ -915,6 +961,43 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
                     </div>
                 </div>
             </div>
+
+            {/* Модальное окно с деталями теста */}
+            {selectedResult && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className={`w-full max-w-2xl p-6 rounded-lg ${
+                        darkMode ? 'bg-gray-800' : 'bg-white'
+                    }`}>
+                        <h3 className="text-xl font-bold mb-2">{selectedResult.test_name}</h3>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Дата прохождения:</p>
+                                <p>{new Date(selectedResult.completed_at).toLocaleString()}</p>
+                            </div>
+                            <div>
+                                <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Результат:</p>
+                                <p>{selectedResult.score}%</p>
+                            </div>
+                        </div>
+                        <div className="mb-4">
+                            <h4 className="font-medium mb-2">Ответы:</h4>
+                            <pre className={`p-3 rounded text-sm overflow-auto max-h-60 ${
+                                darkMode ? 'bg-gray-700' : 'bg-gray-100'
+                            }`}>
+                                {JSON.stringify(selectedResult.answers, null, 2)}
+                            </pre>
+                        </div>
+                        <button
+                            onClick={() => setSelectedResult(null)}
+                            className={`px-4 py-2 rounded ${
+                                darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                        >
+                            Закрыть
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

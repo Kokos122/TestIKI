@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import TestLayout from "./TestLayout.js";
+import { toast } from "react-toastify";
 
 const AnxietyTest = ({ darkMode }) => {
   const { id } = useParams();
@@ -13,7 +14,14 @@ const AnxietyTest = ({ darkMode }) => {
   const [answers, setAnswers] = useState({});
   const [totalScore, setTotalScore] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [resultData, setResultData] = useState(null);
+  const [resultData, setResultData] = useState({
+    text: "",
+    description: ""
+  }); // Инициализация по умолчанию
+
+  const api = axios.create({
+    baseURL: "http://localhost:8080",
+  });
 
   useEffect(() => {
     if (!id) {
@@ -23,7 +31,7 @@ const AnxietyTest = ({ darkMode }) => {
 
     const fetchTest = async () => {
       try {
-        const response = await axios.get(`http://localhost:8080/tests/${id}`);
+        const response = await api.get(`/tests/${id}`);
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
@@ -31,6 +39,7 @@ const AnxietyTest = ({ darkMode }) => {
       } catch (err) {
         console.error("Error:", err.response?.data || err.message);
         setError(err.response?.data?.error || "Failed to load test");
+        toast.error("Не удалось загрузить тест");
       } finally {
         setLoading(false);
       }
@@ -53,53 +62,83 @@ const AnxietyTest = ({ darkMode }) => {
     
     try {
       if (!test?.scoring_rules) {
-        throw new Error("Правила оценки не найдены в данных теста");
+        throw new Error("Правила оценки не найдены");
       }
-  
+
       let scoringData = test.scoring_rules;
       if (typeof scoringData === 'string') {
-        try {
-          scoringData = JSON.parse(scoringData);
-        } catch (parseError) {
-          throw new Error("Не удалось распарсить правила оценки");
-        }
+        scoringData = JSON.parse(scoringData);
       }
-  
-      if (!scoringData || typeof scoringData !== 'object') {
-        throw new Error("Некорректный формат правил оценки");
+
+      if (!scoringData?.scoring?.ranges) {
+        throw new Error("Некорректные правила оценки");
       }
-  
-      const scoring = scoringData.scoring;
-      if (!scoring) {
-        throw new Error("Отсутствует объект scoring в правилах оценки");
-      }
-  
-      if (!Array.isArray(scoring.ranges)) {
-        throw new Error("Отсутствует или некорректен массив ranges в правилах оценки");
-      }
-  
+
       const rawScore = Object.values(answers).reduce((sum, answer) => sum + (answer || 0), 0);
-      
-      // Убрано масштабирование к процентам
-      const finalScore = rawScore;
-      
-      const matchedRange = scoring.ranges.find(
+      const finalScore = Math.max(0, rawScore); // Гарантируем неотрицательный результат
+
+      const matchedRange = scoringData.scoring.ranges.find(
         range => finalScore >= (range.min || 0) && finalScore <= range.max
-      );
-  
+      ) || {}; // Защита от undefined
+
+      const resultText = matchedRange.text || `Результат: ${finalScore} баллов`;
+      const description = matchedRange.description || "";
+
       setTotalScore(finalScore);
       setResultData({
-        text: matchedRange?.text || `Результат ${finalScore} не попадает в заданные диапазоны`,
-        description: matchedRange?.description || "",
+        text: resultText,
+        description: description
       });
+
+      return saveTestResult(finalScore, resultText);
     } catch (err) {
-      console.error("Error calculating score:", err);
+      console.error("Ошибка расчета:", err);
       setResultData({
-        text: "Ошибка при расчете результата",
-        description: err.message,
+        text: "Ошибка расчета",
+        description: err.message
       });
+      toast.error("Ошибка при расчете результата");
+      throw err;
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const saveTestResult = async (score, resultText) => {
+    try {
+      if (!test) {
+        throw new Error("Данные теста не загружены");
+      }
+
+      const payload = {
+        test_id: test.id,
+        test_name: test.title || "Без названия",
+        score: Math.max(1, score || 1), // Минимум 1 балл
+        result_text: resultText || "Результат не определен",
+        answers: answers || {}
+      };
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("Требуется авторизация");
+      }
+
+      const response = await api.post('/test-result', payload, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      toast.success("Результат сохранен!");
+      return response.data;
+    } catch (error) {
+      console.error("Ошибка сохранения:", {
+        error: error.message,
+        response: error.response?.data
+      });
+      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      throw error;
     }
   };
 
@@ -114,13 +153,13 @@ const AnxietyTest = ({ darkMode }) => {
   if (error || !test) {
     return (
       <div className={`flex flex-col justify-center items-center h-screen p-4 ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"}`}>
-        <h2 className="text-2xl font-bold mb-4">{error ? "Error" : "Test not found"}</h2>
-        <p className="text-red-500 mb-6">{error || "The requested test was not found"}</p>
+        <h2 className="text-2xl font-bold mb-4">{error ? "Ошибка" : "Тест не найден"}</h2>
+        <p className="text-red-500 mb-6">{error || "Запрошенный тест не существует"}</p>
         <button
           onClick={() => navigate("/tests")}
           className={`px-4 py-2 rounded ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"} text-white`}
         >
-          Back to Tests
+          Вернуться к тестам
         </button>
       </div>
     );
@@ -141,18 +180,18 @@ const AnxietyTest = ({ darkMode }) => {
       canSubmit={Object.keys(answers).length === questions.length}
       showResults={totalScore !== null}
       results={
-        <>
+        <div className="space-y-2">
           <h2 className="text-2xl font-bold">Результат:</h2>
-          <p className="text-xl mt-2">
-            {resultData?.text || "Не определено"}
-          </p>
-          {resultData?.description && (
-            <p className="mt-2 text-gray-600 dark:text-gray-300">{resultData.description}</p>
+          <p className="text-xl">{resultData.text}</p>
+          {resultData.description && (
+            <p className={`mt-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+              {resultData.description}
+            </p>
           )}
-        </>
+        </div>
       }
       onHome={() => navigate("/")}
-      currentQuestionData={currentQuestionData} // Передаем как пропс
+      currentQuestionData={currentQuestionData}
       answers={answers}
       handleAnswerChange={handleAnswerChange}
       isLoading={loading}
@@ -161,4 +200,4 @@ const AnxietyTest = ({ darkMode }) => {
   );
 };
 
-export default AnxietyTest;
+export default AnxietyTest; 

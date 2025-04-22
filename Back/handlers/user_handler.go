@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"myproject/auth"
 	"myproject/cloudinary"
@@ -306,6 +307,7 @@ func UpdateAvatar(c *gin.Context) {
 		"avatar_url": req.AvatarURL,
 	})
 }
+
 func DeleteAvatar(c *gin.Context) {
 	username := c.MustGet("username").(string)
 
@@ -390,31 +392,55 @@ func GetTest(c *gin.Context) {
 
 // Сохранение результатов теста (обновленная версия)
 func SaveTestResult(c *gin.Context) {
-	username := c.MustGet("username").(string)
+	fmt.Println("📩 Запрос на сохранение теста получен")
+
+	usernameAny, exists := c.Get("username")
+	if !exists {
+		fmt.Println("❌ Username не найден в контексте")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	username := usernameAny.(string)
+
 	var req struct {
 		TestID     uint                   `json:"test_id" binding:"required"`
 		TestName   string                 `json:"test_name" binding:"required"`
-		Score      int                    `json:"score" binding:"required"`
-		ResultText string                 `json:"result_text" binding:"required"`
+		Score      int                    `json:"score"`       // удалён required — т.к. 0 = valid
+		ResultText string                 `json:"result_text"` // удалён required — проверим вручную
 		Answers    map[string]interface{} `json:"answers"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		fmt.Println("❌ Ошибка биндинга JSON:", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
+	// Проверка данных вручную
+	if req.TestID == 0 || req.TestName == "" || req.ResultText == "" {
+		fmt.Println("⚠️ Недостаточно данных:", req)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Недостаточно данных для сохранения"})
+		return
+	}
+
+	fmt.Printf("📦 Данные запроса:\nTestID: %v\nTestName: %s\nScore: %d\nResult: %s\nAnswers: %#v\n",
+		req.TestID, req.TestName, req.Score, req.ResultText, req.Answers)
+
 	var user database.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		fmt.Println("❌ Пользователь не найден:", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
 	answersJSON, err := json.Marshal(req.Answers)
 	if err != nil {
+		fmt.Println("❌ Ошибка сериализации answers:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not process answers"})
 		return
 	}
+
+	fmt.Println("✅ Answers JSON:", string(answersJSON))
 
 	testResult := database.TestResult{
 		UserID:      user.ID,
@@ -426,7 +452,11 @@ func SaveTestResult(c *gin.Context) {
 		CompletedAt: time.Now(),
 	}
 
+	fmt.Println("💾 Сохраняем результат:")
+	fmt.Printf("UserID: %v\nTestID: %v\nScore: %d\nText: %s\n", user.ID, req.TestID, req.Score, req.ResultText)
+
 	if err := database.DB.Create(&testResult).Error; err != nil {
+		fmt.Println("❌ Ошибка при сохранении в БД:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save test result"})
 		return
 	}
@@ -439,5 +469,21 @@ func SaveTestResult(c *gin.Context) {
 			"score":       testResult.Score,
 			"result_text": testResult.ResultText,
 		},
+	})
+}
+
+// Получение результатов тестов для профиля
+// handlers.go
+func GetUserTestResults(c *gin.Context) {
+	username := c.MustGet("username").(string)
+
+	var user database.User
+	if err := database.DB.Preload("TestResults").Where("username = ?", username).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"test_results": user.TestResults,
 	})
 }

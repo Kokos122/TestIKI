@@ -118,6 +118,7 @@ func main() {
 		authGroup.POST("/upload-avatar", handlers.UploadAvatar)
 		authGroup.POST("/update-avatar", handlers.UpdateAvatar)
 		authGroup.DELETE("/avatar", handlers.DeleteAvatar)
+		authGroup.GET("/user/test-results", handlers.GetUserTestResults)
 	}
 
 	// Запуск сервера
