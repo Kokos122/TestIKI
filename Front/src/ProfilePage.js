@@ -12,12 +12,129 @@ import {
   FaTrash,
   FaCopy,
   FaInfoCircle,
-  FaSort
+  FaSort,
+  FaCalendarAlt,
+  FaClock,
+  FaCalendarDay
 } from 'react-icons/fa';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import { useKeenSlider } from 'keen-slider/react.es.js';
+import 'keen-slider/keen-slider.min.css';
+
+const HISTORY_LIMIT = 3;
+// Компонент ProgressBar
+const ProgressBar = ({ score, darkMode }) => (
+  <div className={`h-2 rounded-full ${
+    darkMode ? 'bg-gray-700' : 'bg-gray-200'
+  } mt-2`}>
+    <div 
+      className={`h-full rounded-full ${
+        score >= 70 ? 'bg-green-500' : 
+        score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+      }`}
+      style={{ width: `${score}%` }}
+    />
+  </div>
+);
+
+// Компонент карточки теста
+const TestResultCard = ({ result, darkMode, onViewDetails, compact = false }) => (
+  <div className={`p-4 rounded-lg border h-full ${
+    darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'
+  } ${compact ? 'min-h-[180px]' : ''}`}>
+    <div className="flex justify-between items-start h-full">
+      <div className="flex flex-col h-full">
+        <div>
+          <h3 className="font-medium">{result.test_name}</h3>
+          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            {new Date(result.completed_at).toLocaleDateString()}
+            {result.category && ` • ${result.category}`}
+          </p>
+          <ProgressBar score={result.score} darkMode={darkMode} />
+        </div>
+        <div className={`text-lg font-bold mt-2 ${
+          result.score >= 70 ? (darkMode ? 'text-green-400' : 'text-green-600') :
+          result.score >= 40 ? (darkMode ? 'text-yellow-400' : 'text-yellow-600') :
+          (darkMode ? 'text-red-400' : 'text-red-600')
+        }`}>
+          {result.score}%
+        </div>
+      </div>
+    </div>
+    {!compact && (
+      <>
+        <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          {result.result_text}
+        </p>
+        <div className="mt-3 flex justify-between items-center">
+          <button 
+            onClick={() => onViewDetails(result)}
+            className={`text-sm ${
+              darkMode ? 'text-blue-400 hover:text-blue-300' : 
+              'text-blue-600 hover:text-blue-800'
+            }`}
+          >
+            Подробнее
+          </button>
+          <button 
+            onClick={() => navigator.clipboard.writeText(
+              `Я набрал ${result.score}% в тесте "${result.test_name}"`
+            )}
+            className={`text-sm ${
+              darkMode ? 'text-gray-400 hover:text-gray-300' : 
+              'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            Поделиться
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+);
+
+// Компонент карусели тестов
+const TestCarousel = ({ testResults, darkMode, onViewDetails }) => {
+  const [sliderRef] = useKeenSlider({
+    loop: true,
+    slides: {
+      perView: 1.2,
+      spacing: 15,
+    },
+    breakpoints: {
+      '(min-width: 640px)': {
+        slides: {
+          perView: 2.2,
+          spacing: 15,
+        },
+      },
+      '(min-width: 1024px)': {
+        slides: {
+          perView: 3,
+          spacing: 20,
+        },
+      },
+    },
+  });
+
+  return (
+    <div ref={sliderRef} className="keen-slider mt-6">
+      {testResults.slice(0, 10).map((result, index) => (
+        <div key={index} className="keen-slider__slide">
+          <TestResultCard 
+            result={result} 
+            darkMode={darkMode} 
+            onViewDetails={onViewDetails}
+            compact={true}
+          />
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) => {
     const [testResults, setTestResults] = useState([]);
@@ -104,7 +221,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
 
     // Подготовка данных для графиков
     const averageScore = testResults.length > 0 
-        ? (testResults.reduce((acc, result) => acc + result.score, 0) / testResults.length )
+        ? (testResults.reduce((acc, result) => acc + result.score, 0) / testResults.length)
         : 0;
 
     const scoreDistribution = [
@@ -125,6 +242,51 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
         name,
         value
     }));
+
+    // Подготовка данных для статистики по времени
+    const getTimeStatistics = () => {
+      if (testResults.length === 0) return null;
+
+      const daysOfWeek = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+      
+      const completedDates = testResults
+        .map(r => new Date(r.completed_at))
+        .sort((a, b) => a - b);
+
+      // Статистика по дням недели
+      const dayFrequency = {};
+      completedDates.forEach(date => {
+        const day = date.getDay();
+        dayFrequency[day] = (dayFrequency[day] || 0) + 1;
+      });
+
+      const mostActiveDayIndex = Object.entries(dayFrequency)
+        .sort((a, b) => b[1] - a[1])[0]?.[0];
+
+      const mostActiveDay = mostActiveDayIndex !== undefined 
+        ? daysOfWeek[parseInt(mostActiveDayIndex)] 
+        : 'Нет данных';
+
+      // Среднее время между тестами
+      let avgInterval = null;
+      if (completedDates.length > 1) {
+        let totalDiff = 0;
+        for (let i = 1; i < completedDates.length; i++) {
+          const diff = completedDates[i] - completedDates[i - 1];
+          totalDiff += diff;
+        }
+        const avgDiff = totalDiff / (completedDates.length - 1);
+        avgInterval = Math.round(avgDiff / (1000 * 60 * 60 * 24));
+      }
+
+      return {
+        mostActiveDay,
+        avgInterval,
+        totalTests: testResults.length
+      };
+    };
+
+    const timeStats = getTimeStatistics();
 
     // Сортировка и фильтрация результатов
     const sortedResults = [...testResults].sort((a, b) => {
@@ -252,71 +414,6 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
         { id: 1, name: 'Тест на логику', category: 'Логика', icon: FaChartLine },
         { id: 2, name: 'Тест по психологии', category: 'Психология', icon: FaChartLine },
     ];
-
-    // Компонент ProgressBar
-    const ProgressBar = ({ score }) => (
-        <div className={`h-2 rounded-full ${
-            darkMode ? 'bg-gray-700' : 'bg-gray-200'
-        } mt-2`}>
-            <div 
-                className={`h-full rounded-full ${
-                    score >= 70 ? 'bg-green-500' : 
-                    score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${score}%` }}
-            />
-        </div>
-    );
-
-    // Компонент TestResultCard
-    const TestResultCard = ({ result, darkMode, onViewDetails }) => (
-        <div className={`p-4 rounded-lg border ${
-            darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'
-        }`}>
-            <div className="flex justify-between items-start">
-                <div>
-                    <h3 className="font-medium">{result.test_name}</h3>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {new Date(result.completed_at).toLocaleDateString()}
-                        {result.category && ` • ${result.category}`}
-                    </p>
-                    <ProgressBar score={result.score} />
-                </div>
-                <div className={`text-lg font-bold ${
-                    result.score >= 70 ? (darkMode ? 'text-green-400' : 'text-green-600') :
-                    result.score >= 40 ? (darkMode ? 'text-yellow-400' : 'text-yellow-600') :
-                    (darkMode ? 'text-red-400' : 'text-red-600')
-                }`}>
-                    {result.score}%
-                </div>
-            </div>
-            <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                {result.result_text}
-            </p>
-            <div className="mt-3 flex justify-between items-center">
-                <button 
-                    onClick={() => onViewDetails(result)}
-                    className={`text-sm ${
-                        darkMode ? 'text-blue-400 hover:text-blue-300' : 
-                        'text-blue-600 hover:text-blue-800'
-                    }`}
-                >
-                    Подробнее
-                </button>
-                <button 
-                    onClick={() => navigator.clipboard.writeText(
-                        `Я набрал ${result.score}% в тесте "${result.test_name}"`
-                    )}
-                    className={`text-sm ${
-                        darkMode ? 'text-gray-400 hover:text-gray-300' : 
-                        'text-gray-600 hover:text-gray-800'
-                    }`}
-                >
-                    Поделиться
-                </button>
-            </div>
-        </div>
-    );
 
     if (!user) {
         navigate('/');
@@ -683,7 +780,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
                                             whileHover={{
                                                 y: -5,
                                                 transition: {
-                                                duration: 0.2,  // Увеличенное время анимации при наведении
+                                                duration: 0.2,
                                                 ease: "easeInOut"
                                                 }
                                             }}
@@ -697,117 +794,59 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
                                             <p className="text-sm">{stat.label}</p>
                                             </motion.div>
                                         ))}
-                                        </div>
-                                </motion.div>
-
-                                {/* Графики */}
-                                <motion.div 
-                                    variants={containerVariants}
-                                    className={`p-6 rounded-2xl shadow-xl ${
-                                        darkMode 
-                                            ? "bg-gray-800/80 backdrop-blur-sm border border-gray-700" 
-                                            : "bg-white border border-gray-200"
-                                    }`}
-                                >
-                                    <motion.h3 variants={itemVariants} className="text-xl font-bold mb-4">
-                                        Распределение результатов
-                                    </motion.h3>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Круговой график */}
-                                        <motion.div 
-                                            variants={itemVariants}
-                                            className="h-64"
-                                        >
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <defs>
-                                                        <linearGradient id="pieGradient" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor={darkMode ? "#8884d8" : "#6366f1"} stopOpacity={0.8}/>
-                                                            <stop offset="95%" stopColor={darkMode ? "#8884d8" : "#6366f1"} stopOpacity={0.2}/>
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <Pie
-                                                        data={scoreDistribution}
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        labelLine={false}
-                                                        outerRadius={80}
-                                                        fill="url(#pieGradient)"
-                                                        dataKey="value"
-                                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                                        animationBegin={0}
-                                                        animationDuration={1500}
-                                                        animationEasing="ease-out"
-                                                    >
-                                                        {scoreDistribution.map((entry, index) => (
-                                                            <Cell key={`cell-${index}`} fill={COLORS[index]} />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip
-                                                        contentStyle={{
-                                                            background: darkMode ? '#1e293b' : '#ffffff',
-                                                            borderColor: darkMode ? '#4f46e5' : '#6366f1',
-                                                            borderRadius: '0.5rem',
-                                                            color: darkMode ? '#f8fafc' : '#1e293b'
-                                                        }}
-                                                    />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        </motion.div>
-
-                                        {/* Столбчатый график */}
-                                        <motion.div 
-                                            variants={itemVariants}
-                                            className="h-64"
-                                        >
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart
-                                                    data={categoryData}
-                                                    layout="vertical"
-                                                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                                                >
-                                                    <defs>
-                                                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor={darkMode ? "#8884d8" : "#6366f1"} stopOpacity={0.8}/>
-                                                            <stop offset="95%" stopColor={darkMode ? "#8884d8" : "#6366f1"} stopOpacity={0.2}/>
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <XAxis 
-                                                        type="number" 
-                                                        tick={{ fill: darkMode ? '#e2e8f0' : '#475569' }}
-                                                    />
-                                                    <YAxis 
-                                                        dataKey="name" 
-                                                        type="category" 
-                                                        tick={{ fill: darkMode ? '#e2e8f0' : '#475569' }}
-                                                    />
-                                                    <Tooltip
-                                                        contentStyle={{
-                                                            background: darkMode ? '#1e293b' : '#ffffff',
-                                                            borderColor: darkMode ? '#4f46e5' : '#6366f1',
-                                                            borderRadius: '0.5rem',
-                                                            color: darkMode ? '#f8fafc' : '#1e293b'
-                                                        }}
-                                                    />
-                                                    <Bar 
-                                                        dataKey="value" 
-                                                        fill="url(#barGradient)" 
-                                                        radius={[4, 4, 0, 0]}
-                                                        animationDuration={1500}
-                                                    >
-                                                        {categoryData.map((entry, index) => (
-                                                            <motion.cell
-                                                                key={`cell-${index}`}
-                                                                custom={entry.value * 10}
-                                                                variants={barVariants}
-                                                            />
-                                                        ))}
-                                                    </Bar>
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </motion.div>
                                     </div>
+
+                                    {/* Статистика по времени */}
+                                    {timeStats && (
+                                        <div className="mt-6">
+                                            <h4 className="text-lg font-semibold mb-3">Статистика по времени</h4>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <div className={`p-4 rounded-lg ${
+                                                    darkMode ? 'bg-gray-700/30' : 'bg-blue-50'
+                                                }`}>
+                                                    <div className="flex items-center">
+                                                        <FaCalendarDay className={`mr-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                                                        <span className="text-sm">Самый активный день</span>
+                                                    </div>
+                                                    <p className="text-xl font-bold mt-1">{timeStats.mostActiveDay}</p>
+                                                </div>
+                                                
+                                                <div className={`p-4 rounded-lg ${
+                                                    darkMode ? 'bg-gray-700/30' : 'bg-green-50'
+                                                }`}>
+                                                    <div className="flex items-center">
+                                                        <FaClock className={`mr-2 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                                                        <span className="text-sm">Средний интервал</span>
+                                                    </div>
+                                                    <p className="text-xl font-bold mt-1">
+                                                        {timeStats.avgInterval !== null ? `${timeStats.avgInterval} дн.` : '—'}
+                                                    </p>
+                                                </div>
+                                                
+                                                <div className={`p-4 rounded-lg ${
+                                                    darkMode ? 'bg-gray-700/30' : 'bg-purple-50'
+                                                }`}>
+                                                    <div className="flex items-center">
+                                                        <FaChartLine className={`mr-2 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                                                        <span className="text-sm">Всего тестов</span>
+                                                    </div>
+                                                    <p className="text-xl font-bold mt-1">{timeStats.totalTests}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Карусель тестов */}
+                                    {testResults.length > 0 && (
+                                        <div className="mt-6">
+                                            <h4 className="text-lg font-semibold mb-3">Недавние тесты</h4>
+                                            <TestCarousel 
+                                                testResults={testResults} 
+                                                darkMode={darkMode}
+                                                onViewDetails={viewTestDetails}
+                                            />
+                                        </div>
+                                    )}
                                 </motion.div>
 
                                 {/* Рекомендации */}
@@ -904,7 +943,6 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
                                                 <option value="all">Все категории</option>
                                                 <option value="psychology">Психология</option>
                                                 <option value="logic">Логика</option>
-                                                {/* Добавьте другие категории */}
                                             </select>
                                         </div>
                                     </div>
@@ -917,14 +955,16 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, toggleTheme }) 
                                     </div>
                                 ) : filteredResults.length > 0 ? (
                                     <div className="space-y-4">
-                                        {filteredResults.map((result) => (
-                                            <TestResultCard 
-                                                key={result.id}
-                                                result={result}
-                                                darkMode={darkMode}
-                                                onViewDetails={viewTestDetails}
-                                            />
-                                        ))}
+                                    {filteredResults
+                                        .slice(0, HISTORY_LIMIT)       // ← берём только 5 первых
+                                        .map((result) => (
+                                        <TestResultCard 
+                                            key={result.id}
+                                            result={result}
+                                            darkMode={darkMode}
+                                            onViewDetails={viewTestDetails}
+                                        />
+                                    ))}
                                     </div>
                                 ) : (
                                     <div className={`p-8 text-center rounded-2xl shadow-xl ${
