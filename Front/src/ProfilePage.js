@@ -49,6 +49,10 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
   const navigate = useNavigate();
+  const [achievementPage, setAchievementPage] = useState(0);
+  const [prevPage, setPrevPage] = useState(0);
+  const achievementsPerPage = 4;
+  
 
   // Анимации
   const containerVariants = {
@@ -217,10 +221,14 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
 
   // Проверка достижений
   const achievements = [
-    { id: 1, name: 'Новичок', earned: testResults.length >= 1, icon: '🥉', description: 'Пройдите первый тест' },
-    { id: 2, name: 'Любитель', earned: testResults.length >= 5, icon: '🥈', description: 'Пройдите 5 тестов' },
-    { id: 3, name: 'Эксперт', earned: testResults.length >= 10, icon: '🥇', description: 'Пройдите 10 тестов' },
-    { id: 4, name: 'Отличник', earned: averageScore >= 80, icon: '🏅', description: 'Средний балл 80%+' },
+    { id: 1, name: 'Эксперт', earned: testResults.length >= 25, icon: '🥇', description: 'Пройдите 25 тестов' },
+    { id: 2, name: 'Любитель', earned: testResults.length >= 10, icon: '🥈', description: 'Пройдите 5 тестов' },
+    { id: 3, name: 'Новичок', earned: testResults.length >= 5, icon: '🥉', description: 'Пройдите 5 тестов' },
+    { id: 4, name: 'Старт', earned: testResults.length >= 1, icon: '🚀', description: 'Пройдите первый тест' },
+    { id: 5, name: 'Универсал', earned: categoryData.length >= 5, icon: '🧠', description: 'Пройдите тесты в 5+ категориях' },
+    { id: 6, name: 'Спринтер', earned: testResults.length >= 3 && testResults.some(r => new Date(r.completed_at).getTime() > Date.now() - 86400000), icon: '⚡', description: 'Пройдите 3 теста за день' },
+    { id: 7, name: 'Мастер категории', earned: categoryData.some(c => c.value >= 5), icon: '🎯', description: 'Пройдите 5+ тестов в одной категории' },
+    { id: 8, name: 'Профессионал', earned: testResults.length >= 50, icon: '🎖️', description: 'Пройдите 50 тестов' }
   ];
 
   // Обработчики событий
@@ -560,7 +568,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className={`p-6 rounded-2xl shadow-xl ${
+              className={`p-6 rounded-2xl shadow-xl relative ${
                 darkMode 
                   ? "bg-gray-800/80 backdrop-blur-sm border border-gray-700" 
                   : "bg-white border border-gray-200"
@@ -569,35 +577,114 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
               <h3 className="text-xl font-bold mb-4 flex items-center">
                 <FaTrophy className="mr-2 text-yellow-500" /> Достижения
               </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {achievements.map((achievement) => (
-                  <motion.div 
-                    key={achievement.id}
-                    whileHover={{ scale: 1.03 }}
-                    className={`p-3 rounded-lg text-center transition ${
-                      achievement.earned 
-                        ? darkMode 
-                          ? "bg-yellow-900/20 border border-yellow-800/50" 
-                          : "bg-yellow-100 border border-yellow-200"
-                        : darkMode 
-                          ? "bg-gray-700/30 border border-gray-600/50" 
-                          : "bg-gray-100 border border-gray-200"
+
+              {/* Кнопка "Назад" */}
+              <button 
+                onClick={() => {
+                  if (achievementPage > 0) {
+                    setPrevPage(achievementPage);
+                    setAchievementPage(p => p - 1);
+                  }
+                }}
+                disabled={achievementPage === 0}
+                className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full z-10 shadow-md transition-all duration-300 transform hover:scale-110 ${
+                  darkMode 
+                    ? 'bg-gray-700 hover:bg-indigo-600 text-white' 
+                    : 'bg-gray-200 hover:bg-indigo-100 text-indigo-600'
+                } ${achievementPage === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-label="Предыдущая страница"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+
+              {/* Кнопка "Вперед" */}
+              <button 
+                onClick={() => {
+                  const totalPages = Math.ceil(achievements.length / achievementsPerPage) - 1;
+                  if (achievementPage < totalPages) {
+                    setPrevPage(achievementPage);
+                    setAchievementPage(p => p + 1);
+                  }
+                }}
+                disabled={achievementPage >= Math.ceil(achievements.length / achievementsPerPage) - 1}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full z-10 shadow-md transition-all duration-300 transform hover:scale-110 ${
+                  darkMode 
+                    ? 'bg-gray-700 hover:bg-indigo-600 text-white' 
+                    : 'bg-gray-200 hover:bg-indigo-100 text-indigo-600'
+                } ${achievementPage >= Math.ceil(achievements.length / achievementsPerPage) - 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-label="Следующая страница"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+
+              {/* Анимированный контейнер с достижениями */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={achievementPage}
+                  initial={{ opacity: 0, x: achievementPage > prevPage ? 50 : -50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: achievementPage > prevPage ? -50 : 50 }}
+                  transition={{ duration: 0.3 }}
+                  className="grid grid-cols-2 gap-3"
+                >
+                  {achievements
+                    .slice(
+                      achievementPage * achievementsPerPage,
+                      (achievementPage + 1) * achievementsPerPage
+                    )
+                    .map((achievement) => (
+                      <motion.div 
+                        key={achievement.id}
+                        whileHover={{ scale: 1.03 }}
+                        className={`p-3 rounded-lg text-center transition ${
+                          achievement.earned 
+                            ? darkMode 
+                              ? "bg-yellow-900/20 border border-yellow-800/50" 
+                              : "bg-yellow-100 border border-yellow-200"
+                            : darkMode 
+                              ? "bg-gray-700/30 border border-gray-600/50" 
+                              : "bg-gray-100 border border-gray-200"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">
+                          {achievement.earned ? achievement.icon : '🔒'}
+                        </div>
+                        <p className="text-sm font-medium">
+                          {achievement.name}
+                        </p>
+                        <p className={`text-xs mt-1 ${
+                          achievement.earned 
+                            ? darkMode ? "text-yellow-400" : "text-yellow-600"
+                            : darkMode ? "text-gray-500" : "text-gray-400"
+                        }`}>
+                          {achievement.description}
+                        </p>
+                      </motion.div>
+                    ))
+                  }
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Индикаторы страниц */}
+              <div className="flex justify-center mt-4 space-x-2">
+                {Array.from({ length: Math.ceil(achievements.length / achievementsPerPage) }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setPrevPage(achievementPage);
+                      setAchievementPage(i);
+                    }}
+                    className={`w-2 h-2 rounded-full ${
+                      i === achievementPage 
+                        ? darkMode ? 'bg-yellow-400' : 'bg-yellow-500'
+                        : darkMode ? 'bg-gray-600' : 'bg-gray-300'
                     }`}
-                  >
-                    <div className="text-2xl mb-1">
-                      {achievement.earned ? achievement.icon : '🔒'}
-                    </div>
-                    <p className="text-sm font-medium">
-                      {achievement.name}
-                    </p>
-                    <p className={`text-xs mt-1 ${
-                      achievement.earned 
-                        ? darkMode ? "text-yellow-400" : "text-yellow-600"
-                        : darkMode ? "text-gray-500" : "text-gray-400"
-                    }`}>
-                      {achievement.description}
-                    </p>
-                  </motion.div>
+                    aria-label={`Перейти к странице ${i + 1}`}
+                  />
                 ))}
               </div>
             </motion.div>
@@ -662,62 +749,70 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                   </motion.h3>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { 
-                        value: testResults.length, 
-                        label: 'Пройдено тестов', 
-                        color: 'from-indigo-500 to-purple-600',
-                        icon: <FaBrain className="text-xl mb-1" />
-                      },
-                      { 
-                        value: categoryData[0]?.name || 'Нет данных', 
-                        label: 'Любимая категория', 
-                        color: 'from-blue-500 to-cyan-600',
-                        icon: <FaHeart className="text-xl mb-1" />
-                      },
-                      { 
-                        value: mostActiveDay.date || 'Нет данных', 
-                        label: 'Самый активный день', 
-                        color: 'from-green-500 to-teal-600',
-                        icon: <FaCalendarDay className="text-xl mb-1" />
-                      },
-                      { 
-                        value: favoriteTest.name || 'Нет данных', 
-                        label: 'Любимый тест', 
-                        color: 'from-yellow-500 to-amber-600',
-                        icon: <FaClipboardList className="text-xl mb-1" />
-                      },
-                    ].map((stat, index) => (
-                      <motion.div 
-                        key={index}
-                        variants={itemVariants}
-                        whileHover={{
-                          y: -5,
-                          transition: {
-                            duration: 0.2,
-                            ease: "easeInOut"
-                          }
-                        }}
-                        className={`p-4 rounded-lg text-center ${
-                          darkMode ? "bg-gray-700/50" : "bg-gray-100"
-                        }`}
-                      >
-                        <div className={`mb-2 ${
-                          darkMode ? "text-gray-300" : "text-gray-600"
-                        }`}>
-                          {stat.icon}
-                        </div>
-                        <p className={`text-xl font-bold ${
-                          typeof stat.value === 'number' 
-                            ? "bg-clip-text text-transparent bg-gradient-to-r " + stat.color 
-                            : darkMode ? "text-white" : "text-gray-900"
-                        }`}>
-                          {stat.value}
-                        </p>
-                        <p className="text-sm mt-1">{stat.label}</p>
-                      </motion.div>
-                    ))}
-                  </div>
+  {[
+    { 
+      value: testResults.length, 
+      label: 'Пройдено тестов', 
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      darkBgColor: 'bg-purple-950/20',
+      icon: <FaBrain className="text-xl mb-1 text-purple-600 dark:text-purple-400" />
+    },
+    { 
+      value: categoryData[0]?.name || 'Нет данных', 
+      label: 'Любимая категория', 
+      color: 'text-pink-600',
+      bgColor: 'bg-pink-50',
+      darkBgColor: 'bg-pink-950/20',
+      icon: <FaHeart className="text-xl mb-1 text-pink-600 dark:text-pink-400" />
+    },
+    { 
+      value: mostActiveDay.date || 'Нет данных', 
+      label: 'Самый активный день', 
+      color: 'text-sky-600',
+      bgColor: 'bg-sky-50',
+      darkBgColor: 'bg-sky-950/20',
+      icon: <FaCalendarDay className="text-xl mb-1 text-sky-600 dark:text-sky-400" />
+    },
+    { 
+      value: favoriteTest.name || 'Нет данных', 
+      label: 'Любимый тест', 
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      darkBgColor: 'bg-emerald-950/20',
+      icon: <FaClipboardList className="text-xl mb-1 text-emerald-600 dark:text-emerald-400" />
+    },
+  ].map((stat, index) => (
+    <motion.div 
+      key={index}
+      variants={itemVariants}
+      whileHover={{
+        y: -5,
+        transition: { duration: 0.2, ease: "easeInOut" }
+      }}
+      className={`p-4 rounded-lg text-center ${
+        darkMode ? stat.darkBgColor : stat.bgColor
+      } border ${
+        darkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}
+    >
+      <div className="mb-2">
+        {stat.icon}
+      </div>
+      {/* Увеличенный текст только у "Пройдено тестов" */}
+      <p className={`${
+        stat.label === 'Пройдено тестов' ? 'text-3xl' : 'text-xl'
+      } font-bold ${stat.color} transition-colors duration-200`}>
+        {stat.value}
+      </p>
+      <p className={`text-sm mt-1 ${
+        darkMode ? 'text-gray-300' : 'text-gray-600'
+      } transition-colors duration-200`}>
+        {stat.label}
+      </p>
+    </motion.div>
+  ))}
+</div>
                 </motion.div>
 
                 {/* Графики */}
@@ -800,7 +895,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                         </div>
                       </div>
                       
-                      <div className="h-64 mt-4">
+                      <div className="h-[330px] mt-4">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={activityData}>
                             <XAxis 

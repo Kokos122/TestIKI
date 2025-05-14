@@ -319,7 +319,7 @@ func DeleteAvatar(c *gin.Context) {
 	}
 
 	// 2. Если аватар уже дефолтный, ничего не делаем
-	if user.AvatarURL == "" || user.AvatarURL == "/images/default-avatar.png" {
+	if user.AvatarURL == "" || user.AvatarURL == "https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png" {
 		c.JSON(http.StatusOK, gin.H{"message": "Avatar already removed"})
 		return
 	}
@@ -349,12 +349,12 @@ func DeleteAvatar(c *gin.Context) {
 	}
 
 	// 5. Устанавливаем дефолтный аватар в БД
-	if err := database.DB.Model(&user).Update("avatar_url", "/images/default-avatar.png").Error; err != nil {
+	if err := database.DB.Model(&user).Update("avatar_url", "https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png").Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database update failed"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Avatar removed successfully", "avatar_url": "/images/default-avatar.png"})
+	c.JSON(http.StatusOK, gin.H{"message": "Avatar removed successfully", "avatar_url": "https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png"})
 }
 
 func Logout(c *gin.Context) {

@@ -17,7 +17,7 @@ type User struct {
 	Email       string       `json:"email" gorm:"unique;not null"`
 	IsVerified  bool         `json:"is_verified" gorm:"default:false"`
 	VerifyToken string       `json:"-"`
-	AvatarURL   string       `json:"avatar_url" gorm:"default:'/images/default-avatar.png'"`
+	AvatarURL   string       `json:"avatar_url" gorm:"default:'https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png'"`
 	TestResults []TestResult `json:"test_results" gorm:"foreignKey:UserID"`
 }
 
