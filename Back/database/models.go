@@ -2,7 +2,6 @@ package database
 
 import (
 	"errors"
-
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -12,13 +11,15 @@ import (
 
 type User struct {
 	gorm.Model
-	Username    string       `json:"username" gorm:"unique;not null"`
-	Password    string       `json:"-" gorm:"not null"`
-	Email       string       `json:"email" gorm:"unique;not null"`
-	IsVerified  bool         `json:"is_verified" gorm:"default:false"`
-	VerifyToken string       `json:"-"`
-	AvatarURL   string       `json:"avatar_url" gorm:"default:'/images/default-avatar.png'"`
-	TestResults []TestResult `json:"test_results" gorm:"foreignKey:UserID"`
+	Username      string       `json:"username" gorm:"unique;not null"`
+	Password      string       `json:"-" gorm:"not null"`
+	Email         string       `json:"email" gorm:"unique;not null"`
+	IsVerified    bool         `json:"is_verified" gorm:"default:false"`
+	VerifyToken   string       `json:"-"`
+	AvatarURL     string       `json:"avatar_url" gorm:"default:'/images/default-avatar.png'"`
+	LoginAttempts int          `json:"login_attempts" gorm:"default:0"` // Добавлено для учёта попыток
+	LockUntil     *time.Time   `json:"lock_until"`                      // Добавлено для блокировки
+	TestResults   []TestResult `json:"test_results" gorm:"foreignKey:UserID"`
 }
 
 type Test struct {
