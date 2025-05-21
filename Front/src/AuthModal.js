@@ -1,11 +1,36 @@
-// модальное окно авторизации
-
 import React, { useState } from "react";
 import { FaGoogle, FaEye, FaEyeSlash } from "react-icons/fa";
 import { SlSocialVkontakte } from "react-icons/sl";
 import { SiTelegram } from "react-icons/si";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from 'axios';
+import ReCAPTCHA from "react-google-recaptcha";
+
+// Функция для проверки email
+const isValidEmail = (email) => {
+  if (email.length > 254) return false;
+  const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!re.test(email)) return false;
+  const [localPart] = email.split("@");
+  return localPart.length <= 64;
+};
+
+// Функция для проверки пароля
+const validatePassword = (password) => {
+  if (password.length < 8) {
+    return "Пароль должен быть минимум 8 символов";
+  }
+
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
+    return "Пароль должен содержать заглавные, строчные буквы, цифры и спецсимволы";
+  }
+  return "";
+};
 
 const AuthModal = ({ onClose, onLoginSuccess }) => {
   const [isRegister, setIsRegister] = useState(false);
@@ -18,78 +43,88 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [showCaptcha, setShowCaptcha] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
 
   const handleSocialAuth = (provider) => {
     alert(`Быстрый вход через ${provider} в разработке`);
   };
 
-  const validateEmail = (email) => {
-    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return re.test(email);
-  };
-
-  const validatePassword = (password) => {
-    const hasMinLength = password.length >= 8;
-    const hasUpper = /[A-Z]/.test(password);
-    const hasLower = /[a-z]/.test(password);
-    const hasNumber = /\d/.test(password);
-    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    
-    return hasMinLength && hasUpper && hasLower && hasNumber && hasSpecial;
-  };
-
   const handleAuth = async () => {
     setIsLoading(true);
     setError("");
-  
-    // Проверка обязательных полей
-    if (!username || !password || (isRegister && !email)) {
-      setError("Все поля обязательны для заполнения!");
+
+    // Проверка на пустые поля
+    if (!username || !password) {
+      setError("Все поля обязательны!");
       setIsLoading(false);
       return;
     }
-  
-    // Валидация email только при регистрации
-    if (isRegister && !validateEmail(email)) {
-      setError("Неверный формат email!");
+
+    if (isRegister) {
+      if (!email) {
+        setError("Email обязателен!");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!confirmPassword) {
+        setError("Подтвердите пароль!");
+        setIsLoading(false);
+        return;
+      }
+
+      // Валидация email
+      if (!isValidEmail(email)) {
+        setError("Неверный формат email!");
+        setIsLoading(false);
+        return;
+      }
+
+      // Валидация пароля
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        setError(passwordError);
+        setIsLoading(false);
+        return;
+      }
+
+      // Проверка совпадения паролей
+      if (password !== confirmPassword) {
+        setError("Пароли не совпадают!");
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    if (showCaptcha && !captchaToken) {
+      setError("Пройдите проверку CAPTCHA!");
       setIsLoading(false);
       return;
     }
-  
-    // Валидация пароля только при регистрации
-    if (isRegister && !validatePassword(password)) {
-      setError("Пароль должен содержать минимум 8 символов, включая заглавные и строчные буквы, цифры и специальные символы");
-      setIsLoading(false);
-      return;
-    }
-  
-    // Проверка совпадения паролей только при регистрации
-    if (isRegister && password !== confirmPassword) {
-      setError("Пароли не совпадают!");
-      setIsLoading(false);
-      return;
-    }
-  
+
     const url = isRegister ? "http://localhost:8080/register" : "http://localhost:8080/login";
-    const data = { username, password, ...(isRegister && { email }) };
-  
+    const data = { username, password, ...(isRegister && { email, confirmPassword }), captchaToken };
+
     try {
       const response = await axios.post(url, data);
-      
       if (isRegister) {
-        setError("Регистрация успешна! Теперь вы можете войти.");
+        setError("Регистрация успешна! Войдите.");
         setIsRegister(false);
       } else {
         onLoginSuccess(response.data.token, response.data.user);
+        setAttempts(0);
+        setShowCaptcha(false);
       }
     } catch (error) {
+      setAttempts(attempts + 1);
+      if (attempts + 1 >= 3) {
+        setShowCaptcha(true);
+      }
+
       const serverError = error.response?.data?.error;
-      const networkError = error.message;
-    
-      let errorMessage = "Ошибка при авторизации/регистрации";
-      if (serverError) errorMessage = serverError;
-      else if (networkError.includes("Network Error")) errorMessage = "Сервер недоступен";
-    
+      const errorMessage = serverError || "Ошибка авторизации/регистрации";
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -98,12 +133,7 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
 
   const handlePasswordReset = async () => {
     if (!email) {
-      setError("Введите ваш email для восстановления пароля");
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      setError("Неверный формат email!");
+      setError("Введите email!");
       return;
     }
 
@@ -113,8 +143,12 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
       alert(response.data.message);
       setIsForgotPassword(false);
     } catch (error) {
-      setError(error.response?.data?.error || "Ошибка при восстановлении пароля");
+      setError(error.response?.data?.error || "Ошибка восстановления пароля");
     }
+  };
+
+  const onCaptchaChange = (token) => {
+    setCaptchaToken(token);
   };
 
   return (
@@ -125,12 +159,7 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
-          transition={{
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-            delay: 0.1,
-          }}
+          transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.1 }}
           className="bg-white p-10 rounded-3xl shadow-xl w-96 text-center absolute"
         >
           <motion.h2
@@ -223,6 +252,7 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
                   className="w-full p-3 border rounded-lg"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onCopy={(e) => e.preventDefault()}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.4 }}
@@ -231,15 +261,15 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-3 cursor-pointer text-gray-600"
                 >
-                   <motion.img
-                      src={showPassword ? "eye-open.png" : "eye-closed.png"}
-                      alt="Toggle password visibility"
-                      className="w-6 h-6"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.5 }}
-                      whileHover={{ scale: 1.2 }}
-                    />
+                  <motion.img
+                    src={showPassword ? "eye-open.png" : "eye-closed.png"}
+                    alt="Toggle password visibility"
+                    className="w-6 h-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    whileHover={{ scale: 1.2 }}
+                  />
                 </span>
               </div>
               {isRegister && (
@@ -250,6 +280,7 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
                     className="w-full p-3 border rounded-lg"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    onCopy={(e) => e.preventDefault()}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5 }}
@@ -259,16 +290,30 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
                     className="absolute right-3 top-3 cursor-pointer text-gray-600"
                   >
                     <motion.img
-                    src={showConfirmPassword ? "eye-open.png" : "eye-closed.png"}
-                    alt="Toggle confirm password visibility"
-                    className="w-6 h-6"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.6 }}
-                    whileHover={{ scale: 1.2 }}
-                  />
+                      src={showConfirmPassword ? "eye-open.png" : "eye-closed.png"}
+                      alt="Toggle confirm password visibility"
+                      className="w-6 h-6"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.6 }}
+                      whileHover={{ scale: 1.2 }}
+                    />
                   </span>
                 </div>
+              )}
+              {showCaptcha && (
+                <motion.div
+                  className="mb-3 flex justify-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  {console.log("ReCAPTCHA Site Key:", process.env.REACT_APP_RECAPTCHA_SITE_KEY)}
+                  <ReCAPTCHA
+                    sitekey={process.env.REACT_APP_RECAPTCHA_SITE_KEY}
+                    onChange={onCaptchaChange}
+                  />
+                </motion.div>
               )}
               <motion.button
                 className="bg-gradient-to-br from-indigo-400 to-indigo-500 text-white w-full py-3 rounded-lg mb-3"
