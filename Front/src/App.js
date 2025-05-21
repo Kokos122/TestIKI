@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import axios from 'axios';
 
@@ -41,6 +41,11 @@ const App = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation(); // Добавляем useLocation
+
+  useEffect(() => {
+    window.scrollTo(0, 0); // Прокручиваем в начало страницы
+  }, [location.pathname]); // Срабатывает при изменении пути
 
   const api = axios.create({
     baseURL: 'http://localhost:8080'
@@ -202,16 +207,16 @@ const App = () => {
               onThemeToggle={toggleTheme}
             />
           } />
-          <Route path="/anxiety-test/:id" element={<AnxietyTest darkMode={darkMode} />} />
-          <Route path="/love-test/:id" element={<LoveTest darkMode={darkMode} />} />
-          <Route path="/career-test/:id" element={<CareerTest darkMode={darkMode} />} />
-          <Route path="/logic-test/:id" element={<LogicTest darkMode={darkMode} />} />
-          <Route path="/creativity-test/:id" element={<CreativityTest darkMode={darkMode} />} />
-          <Route path="/flags-test/:id" element={<FlagsTest darkMode={darkMode} />} />
-          <Route path="/dune-test/:id" element={<DuneTest darkMode={darkMode} />} />
-          <Route path="/memory-test/:id" element={<MemoryTest darkMode={darkMode} />} />
-          <Route path="/walking-dead-test/:id" element={<WalkingDeadTest darkMode={darkMode} />} />
-          <Route path="/smeshariki-test/:id" element={<SmesharikiTest darkMode={darkMode} />} />
+          <Route path="/anxiety-test" element={<AnxietyTest darkMode={darkMode} />} />
+          <Route path="/love-test" element={<LoveTest darkMode={darkMode} />} />
+          <Route path="/career-test" element={<CareerTest darkMode={darkMode} />} />
+          <Route path="/logic-test" element={<LogicTest darkMode={darkMode} />} />
+          <Route path="/creativity-test" element={<CreativityTest darkMode={darkMode} />} />
+          <Route path="/flags-test" element={<FlagsTest darkMode={darkMode} />} />
+          <Route path="/dune-test" element={<DuneTest darkMode={darkMode} />} />
+          <Route path="/memory-test" element={<MemoryTest darkMode={darkMode} />} />
+          <Route path="/walking-dead-test" element={<WalkingDeadTest darkMode={darkMode} />} />
+          <Route path="/smeshariki-test" element={<SmesharikiTest darkMode={darkMode} />} />
         </Routes>
       </div>
 

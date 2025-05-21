@@ -49,14 +49,14 @@ const TestsPage = ({ darkMode, isAuthenticated }) => {
   const categories = ['all', ...new Set(tests.map(test => test.category))];
 
   // Обработчик клика по тесту
-  const handleTestClick = (testId) => {
-    if (!isAuthenticated) {
-      toast.info('Для прохождения тестов необходимо войти в систему');
-      return;
-    }
-    navigate(`/test/${testId}`);
-  };
-
+  const handleTestClick = (test) => {
+  console.log("Test clicked:", test.title, test.slug, test.id); // Отладка
+  if (!isAuthenticated) {
+    toast.info('Для прохождения тестов необходимо войти в систему');
+    return;
+  }
+  navigate(`/${test.slug}`);
+};
   if (loading) {
     return (
       <div className={`flex items-center justify-center min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -147,7 +147,7 @@ const TestsPage = ({ darkMode, isAuthenticated }) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
-                  onClick={() => handleTestClick(test.id)}
+                  onClick={() => handleTestClick(test)}
                   className={`p-6 rounded-xl shadow-md cursor-pointer transition-all duration-300 hover:shadow-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border border-gray-700' : 'bg-white hover:bg-gray-50 border border-gray-200'} ${!isAuthenticated ? 'opacity-80' : ''}`}
                 >
                   <div className="flex justify-between items-start mb-4">

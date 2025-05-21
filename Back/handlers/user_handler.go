@@ -376,10 +376,10 @@ func GetTests(c *gin.Context) {
 
 // Получение конкретного теста
 func GetTest(c *gin.Context) {
-	testID := c.Param("id")
+	slug := c.Param("slug")
 
 	var test database.Test
-	result := database.DB.Table("tests").Where("id = ?", testID).First(&test)
+	result := database.DB.Table("tests").Where("slug = ? AND is_active = ?", slug, true).First(&test)
 
 	if result.Error != nil {
 		log.Printf("Error fetching test: %v", result.Error)
@@ -403,10 +403,10 @@ func SaveTestResult(c *gin.Context) {
 	username := usernameAny.(string)
 
 	var req struct {
-		TestID     uint                   `json:"test_id" binding:"required"`
+		TestSlug   string                 `json:"test_slug" binding:"required"` // Изменено с test_id
 		TestName   string                 `json:"test_name" binding:"required"`
-		Score      int                    `json:"score"`       // удалён required — т.к. 0 = valid
-		ResultText string                 `json:"result_text"` // удалён required — проверим вручную
+		Score      int                    `json:"score"`
+		ResultText string                 `json:"result_text"`
 		Answers    map[string]interface{} `json:"answers"`
 	}
 
@@ -417,14 +417,22 @@ func SaveTestResult(c *gin.Context) {
 	}
 
 	// Проверка данных вручную
-	if req.TestID == 0 || req.TestName == "" || req.ResultText == "" {
+	if req.TestSlug == "" || req.TestName == "" || req.ResultText == "" {
 		fmt.Println("⚠️ Недостаточно данных:", req)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Недостаточно данных для сохранения"})
 		return
 	}
 
-	fmt.Printf("📦 Данные запроса:\nTestID: %v\nTestName: %s\nScore: %d\nResult: %s\nAnswers: %#v\n",
-		req.TestID, req.TestName, req.Score, req.ResultText, req.Answers)
+	// Получаем test_id по slug
+	var test database.Test
+	if err := database.DB.Where("slug = ?", req.TestSlug).First(&test).Error; err != nil {
+		fmt.Println("❌ Тест не найден:", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Test not found"})
+		return
+	}
+
+	fmt.Printf("📦 Данные запроса:\nTestSlug: %v\nTestName: %s\nScore: %d\nResult: %s\nAnswers: %#v\n",
+		req.TestSlug, req.TestName, req.Score, req.ResultText, req.Answers)
 
 	var user database.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
@@ -444,7 +452,7 @@ func SaveTestResult(c *gin.Context) {
 
 	testResult := database.TestResult{
 		UserID:      user.ID,
-		TestID:      req.TestID,
+		TestID:      test.ID, // Используем test.ID
 		TestName:    req.TestName,
 		Score:       req.Score,
 		ResultText:  req.ResultText,
@@ -453,7 +461,7 @@ func SaveTestResult(c *gin.Context) {
 	}
 
 	fmt.Println("💾 Сохраняем результат:")
-	fmt.Printf("UserID: %v\nTestID: %v\nScore: %d\nText: %s\n", user.ID, req.TestID, req.Score, req.ResultText)
+	fmt.Printf("UserID: %v\nTestID: %v\nScore: %d\nText: %s\n", user.ID, test.ID, req.Score, req.ResultText)
 
 	if err := database.DB.Create(&testResult).Error; err != nil {
 		fmt.Println("❌ Ошибка при сохранении в БД:", err)

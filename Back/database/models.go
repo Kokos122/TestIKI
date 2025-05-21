@@ -32,6 +32,7 @@ type Test struct {
 	IsActive     bool           `json:"is_active" gorm:"default:true"`
 	CreatedAt    time.Time      `json:"created_at" gorm:"default:now()"`
 	UpdatedAt    time.Time      `json:"updated_at" gorm:"default:now()"`
+	Slug         string         `json:"slug" gorm:"unique;not null"`
 }
 
 type TestResult struct {

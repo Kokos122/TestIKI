@@ -6,7 +6,7 @@ const HomePage = ({ darkMode }) => {
   const testItems = [
     { img: "/images/test9.png", title: "Кто ты из Ходячих мертвецов?", link: "/walking-dead-test" },
     { img: "/images/test1.png", title: "Кто ты из Смешариков?", link: "/smeshariki-test" },
-    { img: "/images/test2.png", title: "Тест на тревожность", link: "/anxiety-test/1" },
+    { img: "/images/test2.png", title: "Тест на тревожность", link: "/anxiety-test" },
     { img: "/images/test3.png", title: "Тест на влюбленность", link: "/love-test" },
     { img: "/images/test4.png", title: "Тест на проф.ориентацию", link: "/career-test" },
     { img: "/images/test5.png", title: "Тест на логику", link: "/logic-test" },

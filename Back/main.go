@@ -107,7 +107,7 @@ func main() {
 	router.POST("/register", handlers.Register)
 	router.POST("/login", handlers.Login)
 	router.POST("/logout", handlers.Logout)
-	router.GET("/tests/:id", handlers.GetTest)
+	router.GET("/tests/:slug", handlers.GetTest)
 
 	// Защищенные маршруты
 	authGroup := router.Group("/")
