@@ -108,7 +108,7 @@ func main() {
 	router.POST("/login", handlers.Login)
 	router.POST("/logout", handlers.Logout)
 	router.GET("/tests/:slug", handlers.GetTest)
-
+	router.GET("/tests", handlers.GetTests)
 	// Защищенные маршруты
 	authGroup := router.Group("/")
 	authGroup.Use(AuthMiddleware())
@@ -119,6 +119,7 @@ func main() {
 		authGroup.POST("/update-avatar", handlers.UpdateAvatar)
 		authGroup.DELETE("/avatar", handlers.DeleteAvatar)
 		authGroup.GET("/user/test-results", handlers.GetUserTestResults)
+		authGroup.PATCH("/update-profile", handlers.UpdateProfile)
 	}
 
 	// Запуск сервера

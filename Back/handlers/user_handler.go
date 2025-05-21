@@ -37,6 +37,11 @@ type TestResultRequest struct {
 	ResultText string `json:"result_text" binding:"required"`
 }
 
+type UpdateProfileRequest struct {
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+}
+
 func validatePassword(password string) error {
 	if len(password) < 8 {
 		return errors.New("password must be at least 8 characters")
@@ -165,21 +170,21 @@ func Login(c *gin.Context) {
 }
 
 func GetCurrentUser(c *gin.Context) {
-	username := c.MustGet("username").(string)
-
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
 	var user database.User
-	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{
-		"user": gin.H{
-			"id":         user.ID,
-			"username":   user.Username,
-			"email":      user.Email,
-			"avatar_url": user.AvatarURL, // Добавлено поле avatar_url
-		},
+		"username":   user.Username,
+		"email":      user.Email,
+		"avatar_url": user.AvatarURL,
+		"created_at": user.CreatedAt.Format(time.RFC3339),
 	})
 }
 
@@ -458,6 +463,7 @@ func SaveTestResult(c *gin.Context) {
 		ResultText:  req.ResultText,
 		Answers:     answersJSON,
 		CompletedAt: time.Now(),
+		Category:    test.Category,
 	}
 
 	fmt.Println("💾 Сохраняем результат:")
@@ -485,13 +491,68 @@ func SaveTestResult(c *gin.Context) {
 func GetUserTestResults(c *gin.Context) {
 	username := c.MustGet("username").(string)
 
+	// Находим пользователя по имени
 	var user database.User
-	if err := database.DB.Preload("TestResults").Where("username = ?", username).First(&user).Error; err != nil {
+	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
+	// Получаем результаты тестов из test_results, включая category
+	var testResults []database.TestResult
+	err := database.DB.
+		Where("user_id = ?", user.ID).
+		Order("completed_at DESC").
+		Find(&testResults).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch test results"})
+		return
+	}
+
+	// Возвращаем результаты
 	c.JSON(http.StatusOK, gin.H{
-		"test_results": user.TestResults,
+		"test_results": testResults,
+	})
+}
+
+// UpdateProfile handles updating the user's profile
+func UpdateProfile(c *gin.Context) {
+	// Get userID from context (set by AuthMiddleware)
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Parse request body
+	var req UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Find the user in the database
+	var user database.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Update user fields
+	user.Username = req.Username
+	user.Email = req.Email
+
+	// Save changes to the database
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		return
+	}
+
+	// Return updated user data
+	c.JSON(http.StatusOK, gin.H{
+		"username":   user.Username,
+		"email":      user.Email,
+		"created_at": user.CreatedAt.Format(time.RFC3339),
 	})
 }

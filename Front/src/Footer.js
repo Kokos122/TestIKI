@@ -1,5 +1,4 @@
 import React from "react";
-import { FaStar, FaQuestionCircle, FaGithub, FaTelegram, FaVk } from "react-icons/fa";
 import { motion } from "framer-motion";
 
 const Footer = ({ darkMode }) => {
@@ -8,8 +7,6 @@ const Footer = ({ darkMode }) => {
     : "bg-gradient-to-t from-indigo-600 to-indigo-500";
 
   const textColor = darkMode ? "text-indigo-200" : "text-white";
-  const hoverColor = darkMode ? "hover:text-indigo-100" : "hover:text-gray-100";
-  const socialBg = darkMode ? "bg-gray-800" : "bg-indigo-700";
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -68,91 +65,25 @@ const Footer = ({ darkMode }) => {
         whileInView="visible"
         viewport={{ once: true }}
         variants={containerVariants}
-        className={`${footerBg} ${textColor} py-8 px-4`}
+        className={`${footerBg} ${textColor} py-12 px-4`}
       >
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* Лого и описание */}
-            <motion.div variants={itemVariants} className="md:col-span-2">
-              <div className="flex items-center mb-3">
-                <img 
-                  src={darkMode ? "/images/logo-white.png" : "/images/logo-white.png"} 
-                  alt="TestIKI" 
-                  className="h-10 w-auto mr-2"
-                />
-                <span className="text-lg font-medium"></span>
-              </div>
-              <p className="text-xs opacity-80 mb-3">
-                Платформа для создания и прохождения тестов
-              </p>
-              
-              {/* Социальные сети */}
-              <div className="flex space-x-3 mt-2">
-                {[
-                  { icon: <FaGithub />, name: "GitHub" },
-                  { icon: <FaTelegram />, name: "Telegram" },
-                  { icon: <FaVk />, name: "VK" }
-                ].map((social, index) => (
-                  <motion.a
-                    key={social.name}
-                    href="#"
-                    aria-label={social.name}
-                    whileHover={{ y: -3, scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className={`p-2 rounded-full ${socialBg} ${hoverColor} transition-all`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 + index * 0.1 }}
-                  >
-                    {social.icon}
-                  </motion.a>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Основные разделы */}
-            <motion.div variants={itemVariants}>
-              <h3 className="text-md font-medium mb-3 flex items-center">
-                <FaStar className="mr-2" /> Тесты
-              </h3>
-              <ul className="space-y-2">
-                {["Программирование", "Психология", "Языки", "Все тесты"].map((item) => (
-                  <motion.li 
-                    key={item}
-                    whileHover={{ x: 3 }}
-                    className={`text-xs ${hoverColor} cursor-pointer`}
-                  >
-                    {item}
-                  </motion.li>
-                ))}
-              </ul>
-            </motion.div>
-
-            {/* Поддержка */}
-            <motion.div variants={itemVariants}>
-              <h3 className="text-md font-medium mb-3 flex items-center">
-                <FaQuestionCircle className="mr-2" /> Поддержка
-              </h3>
-              <ul className="space-y-2">
-                {["FAQ", "Контакты", "Помощь"].map((item) => (
-                  <motion.li 
-                    key={item}
-                    whileHover={{ x: 3 }}
-                    className={`text-xs ${hoverColor} cursor-pointer`}
-                  >
-                    {item}
-                  </motion.li>
-                ))}
-              </ul>
-            </motion.div>
-          </div>
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Цитата о тестах */}
+          <motion.div 
+            variants={itemVariants}
+            className="mb-8"
+          >
+            <blockquote className="text-xl italic font-medium">
+              "Тесты — это не экзамен, а возможность узнать себя лучше. Каждый вопрос — шаг к самопознанию."
+            </blockquote>
+          </motion.div>
 
           {/* Копирайт */}
           <motion.div 
             variants={itemVariants}
-            className={`border-t ${darkMode ? 'border-gray-700' : 'border-indigo-400'} mt-6 pt-4 text-xs text-center opacity-70`}
+            className={`border-t ${darkMode ? 'border-gray-700' : 'border-indigo-400'} pt-4 text-sm opacity-70`}
           >
-            © {new Date().getFullYear()} TestIKI
+            © {new Date().getFullYear()} TestIKI — Все права защищены
           </motion.div>
         </div>
       </motion.footer>

@@ -41,11 +41,11 @@ const App = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation(); // Добавляем useLocation
+  const location = useLocation();
 
   useEffect(() => {
-    window.scrollTo(0, 0); // Прокручиваем в начало страницы
-  }, [location.pathname]); // Срабатывает при изменении пути
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   const api = axios.create({
     baseURL: 'http://localhost:8080'
@@ -78,6 +78,7 @@ const App = () => {
       });
       return true;
     } catch (error) {
+      console.error('Verify auth error:', error);
       handleLogout();
       return false;
     }
@@ -114,21 +115,21 @@ const App = () => {
 
   const handleLogout = async () => {
     try {
-        await api.post('/logout');
+      await api.post('/logout');
     } catch (error) {
-        console.error('Logout error:', error);
+      console.error('Logout error:', error);
     } finally {
-        localStorage.removeItem('token');
-        setIsAuthenticated(false);
-        setCurrentUser({
-            id: null,
-            username: '',
-            email: '',
-            avatar_url: '/images/default-avatar.png'
-        });
-        navigate('/');
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+      setCurrentUser({
+        id: null,
+        username: '',
+        email: '',
+        avatar_url: '/images/default-avatar.png'
+      });
+      navigate('/');
     }
-};
+  };
 
   const updateAvatar = (newAvatarUrl) => {
     setCurrentUser(prev => ({
@@ -194,19 +195,23 @@ const App = () => {
                   user={currentUser} 
                   darkMode={darkMode} 
                   onAvatarUpdate={updateAvatar}
-                  onLogout={handleLogout}  // <- Вот это важно добавить
+                  onLogout={handleLogout}
                 /> : 
                 <Navigate to="/" />
             }
           />
-          <Route path="/tests" element={
-            <TestsPage
-              darkMode={darkMode}
-              onSidebarToggle={toggleSidebar}
-              onProfileClick={handleProfileClick}
-              onThemeToggle={toggleTheme}
-            />
-          } />
+          <Route
+            path="/tests"
+            element={
+              <TestsPage
+                darkMode={darkMode}
+                isAuthenticated={isAuthenticated} // Добавлено
+                onSidebarToggle={toggleSidebar}
+                onProfileClick={handleProfileClick}
+                onThemeToggle={toggleTheme}
+              />
+            }
+          />
           <Route path="/anxiety-test" element={<AnxietyTest darkMode={darkMode} />} />
           <Route path="/love-test" element={<LoveTest darkMode={darkMode} />} />
           <Route path="/career-test" element={<CareerTest darkMode={darkMode} />} />

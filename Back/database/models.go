@@ -44,6 +44,7 @@ type TestResult struct {
 	ResultText  string         `json:"result_text"`
 	Answers     datatypes.JSON `json:"answers" gorm:"type:jsonb"`
 	CompletedAt time.Time      `json:"completed_at"`
+	Category    string         `json:"category"`
 }
 
 func (u *User) HashPassword() error {

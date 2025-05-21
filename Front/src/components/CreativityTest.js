@@ -1,244 +1,240 @@
-import React, { useState } from "react";
-import { FaQuestionCircle } from "react-icons/fa";
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
+import TestLayout from "./TestLayout.js";
+import { toast } from "react-toastify";
 
 const CreativityTest = ({ darkMode }) => {
+  const location = useLocation();
+  const slug = location.pathname.split("/")[2] || "creativity-test";
+  const navigate = useNavigate();
+
+  const [test, setTest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState(Array(15).fill(null));
+  const [answers, setAnswers] = useState({});
   const [totalScore, setTotalScore] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resultData, setResultData] = useState({
+    text: "",
+    description: "",
+  });
+  const [testDescription, setTestDescription] = useState("");
 
-  const questions = [
-      {
-        text: "Как вы обычно решаете проблемы?",
-        options: [
-          "Ищу стандартное решение, которое уже проверено.",
-          "Пробую разные подходы, пока не найду что-то подходящее.",
-          "Ищу нестандартное решение, даже если оно кажется странным.",
-          "Действую интуитивно, без четкого плана."
-        ]
-      },
-      {
-        text: "Как вы относитесь к новым идеям?",
-        options: [
-          "Предпочитаю проверенные методы.",
-          "Интересуюсь новыми идеями, но не всегда их применяю.",
-          "Всегда открыт(а) для новых идей и экспериментов.",
-          "Новые идеи — это моя страсть, я постоянно их генерирую."
-        ]
-      },
-      {
-        text: "Как вы относитесь к ошибкам?",
-        options: [
-          "Стараюсь их избегать.",
-          "Ошибки — это часть процесса, но я стараюсь их минимизировать.",
-          "Ошибки — это возможность научиться чему-то новому.",
-          "Ошибки — это часть творчества, я их не боюсь."
-        ]
-      },
-      {
-        text: "Как вы относитесь к рутине?",
-        options: [
-          "Рутина — это комфортно и предсказуемо.",
-          "Рутина — это скучно, но иногда необходима.",
-          "Стараюсь разнообразить рутину.",
-          "Рутина — это враг креативности, я её избегаю."
-        ]
-      },
-      {
-        text: "Как вы относитесь к неопределенности?",
-        options: [
-          "Неопределенность меня пугает.",
-          "Неопределенность — это вызов, но я справляюсь.",
-          "Неопределенность — это возможность для творчества.",
-          "Неопределенность — это мой стимул для новых идей."
-        ]
-      },
-      {
-        text: "Как вы относитесь к критике?",
-        options: [
-          "Критика меня расстраивает.",
-          "Критика — это полезно, но не всегда приятно.",
-          "Критика — это возможность улучшить свои идеи.",
-          "Критика — это часть процесса, я её не боюсь."
-        ]
-      },
-      {
-        text: "Как вы относитесь к работе в команде?",
-        options: [
-          "Предпочитаю работать самостоятельно.",
-          "Работа в команде — это полезно, но не всегда комфортно.",
-          "Люблю обмениваться идеями с другими.",
-          "Команда — это источник вдохновения и новых идей."
-        ]
-      },
-      {
-        text: "Как вы относитесь к своим мечтам?",
-        options: [
-          "Мечты — это хорошо, но реальность важнее.",
-          "Иногда мечтаю, но не всегда воплощаю мечты в жизнь.",
-          "Мечты — это источник вдохновения.",
-          "Мечты — это основа моих идей и проектов."
-        ]
-      },
-      {
-        text: "Как вы относитесь к экспериментам?",
-        options: [
-          "Эксперименты — это рискованно.",
-          "Иногда экспериментирую, но осторожно.",
-          "Люблю экспериментировать и пробовать новое.",
-          "Эксперименты — это моя стихия."
-        ]
-      },
-      {
-        text: "Как вы относитесь к своим идеям?",
-        options: [
-          "Идеи — это хорошо, но не всегда реалистично.",
-          "Иногда у меня бывают интересные идеи.",
-          "Идеи — это мой главный ресурс.",
-          "Я постоянно генерирую новые идеи."
-        ]
-      },
-      {
-        text: "Как вы относитесь к творчеству?",
-        options: [
-          "Творчество — это не мое.",
-          "Иногда занимаюсь творчеством, но не часто.",
-          "Творчество — это часть моей жизни.",
-          "Творчество — это мой способ самовыражения."
-        ]
-      },
-      {
-        text: "Как вы относитесь к своим страхам?",
-        options: [
-          "Страхи меня ограничивают.",
-          "Стараюсь преодолевать страхи, но не всегда получается.",
-          "Страхи — это вызов, который я принимаю.",
-          "Страхи — это часть творческого процесса."
-        ]
-      },
-      {
-        text: "Как вы относитесь к своим принципам?",
-        options: [
-          "Принципы — это важно, я всегда их придерживаюсь.",
-          "Иногда готов(а) отступить от принципов ради результата.",
-          "Принципы — это гибкие правила, которые можно менять.",
-          "Принципы — это ограничения, я их избегаю."
-        ]
-      },
-      {
-        text: "Как вы относитесь к своим мечтам?",
-        options: [
-          "Мечты — это хорошо, но реальность важнее.",
-          "Иногда мечтаю, но не всегда воплощаю мечты в жизнь.",
-          "Мечты — это источник вдохновения.",
-          "Мечты — это основа моих идей и проектов."
-        ]
-      },
-      {
-        text: "Как вы относитесь к своим идеям?",
-        options: [
-          "Идеи — это хорошо, но не всегда реалистично.",
-          "Иногда у меня бывают интересные идеи.",
-          "Идеи — это мой главный ресурс.",
-          "Я постоянно генерирую новые идеи."
-        ]
-      }    
-  ];
+  const api = axios.create({
+    baseURL: "http://localhost:8080",
+  });
 
-  const handleAnswerChange = (value) => {
-    setAnswers((prevAnswers) => {
-      const newAnswers = [...prevAnswers];
-      newAnswers[currentQuestion] = value + 1;
-      return newAnswers;
-    });
-  };
-
-  const nextQuestion = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
+  useEffect(() => {
+    if (!slug) {
+      navigate("/tests");
+      return;
     }
-  };
+    const fetchTest = async () => {
+      try {
+        const response = await api.get(`/tests/${slug}`);
+        if (!response.data.test) {
+          throw new Error("Test data is empty");
+        }
+        setTest(response.data.test);
+        setTestDescription(response.data.test.description || "Узнайте, насколько вы креативны!");
+      } catch (err) {
+        console.error("Error:", err.response?.data || err.message);
+        setError(err.response?.data?.error || "Не удалось загрузить тест");
+        toast.error("Не удалось загрузить тест");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTest();
+  }, [slug, navigate]);
 
-  const prevQuestion = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(currentQuestion - 1);
-    }
+  const questions = test?.questions || [];
+
+  const handleAnswerChange = (questionId, value) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: value,
+    }));
+    setTimeout(() => {
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion((prev) => prev + 1);
+      }
+    }, 400);
   };
 
   const calculateScore = () => {
-    if (answers.some((answer) => answer === null)) {
-      alert("Пожалуйста, ответьте на все вопросы!");
+    if (Object.keys(answers).length !== questions.length) {
+      toast.warning("Пожалуйста, ответьте на все вопросы");
       return;
     }
-    setIsLoading(true);
-    setTimeout(() => {
-      const score = answers.reduce((sum, answer) => sum + answer, 0);
-      setTotalScore(score);
-      setIsLoading(false);
-    }, 1000);
+    setIsSubmitting(true);
+    try {
+      if (!test?.scoring_rules) {
+        throw new Error("Правила оценки не найдены");
+      }
+      let scoringData = test.scoring_rules;
+      if (typeof scoringData === "string") {
+        scoringData = JSON.parse(scoringData);
+      }
+      if (!scoringData?.scoring?.ranges) {
+        throw new Error("Некорректные правила оценки");
+      }
+      let total = 0;
+      Object.values(answers).forEach((answer) => {
+        total += answer;
+      });
+      const finalScore = total;
+      const matchedRange = scoringData.scoring.ranges.find(
+        (range) => finalScore >= (range.min || 0) && finalScore <= range.max
+      ) || {};
+      setTotalScore(finalScore);
+      setResultData({
+        text: matchedRange.text || `Результат: ${finalScore} баллов`,
+        description: matchedRange.description || "Ваши ответы указывают на вашу креативность!",
+      });
+      return saveTestResult(finalScore, matchedRange.text);
+    } catch (err) {
+      console.error("Ошибка расчета:", err);
+      setResultData({
+        text: "Ошибка расчета",
+        description: err.message,
+      });
+      toast.error("Ошибка при расчете результата");
+      throw err;
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const getResultText = () => {
-    if (totalScore <= 15) return "Ваша креативность пока слабо развита. Вы предпочитаете стабильность и проверенные методы. Попробуйте чаще выходить из зоны комфорта и экспериментировать.";
-    if (totalScore <= 30) return "У вас есть потенциал для креативности, но вы не всегда его используете. Пробуйте чаще генерировать новые идеи и не бойтесь ошибок.";
-    if (totalScore <= 45) return "Вы креативный человек! Вы любите экспериментировать и находить нестандартные решения. Продолжайте развивать свои способности.";
-    return "Вы настоящий творец! Креативность — это ваша стихия. Вы постоянно генерируете новые идеи и не боитесь рисковать.";
+  const saveTestResult = async (score, resultText) => {
+    try {
+      const payload = {
+        test_slug: slug,
+        test_name: test.title || "Тест на креативность",
+        score: score || 0,
+        result_text: resultText || "Результат не определен",
+        answers: answers,
+        category: "Креативность",
+        completed_at: new Date().toISOString(),
+      };
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Требуется авторизация");
+      }
+      await api.post("/test-result", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      toast.success("Результат сохранен!");
+    } catch (error) {
+      console.error("Ошибка сохранения:", error);
+      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      throw error;
+    }
   };
+
+  if (loading) {
+    return (
+      <div
+        className={`flex justify-center items-center h-screen ${
+          darkMode ? "bg-gray-900" : "bg-gray-100"
+        }`}
+      >
+        <div
+          className={`animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 ${
+            darkMode ? "border-blue-400" : "border-blue-500"
+          }`}
+        ></div>
+      </div>
+    );
+  }
+
+  if (error || !test) {
+    return (
+      <div
+        className={`flex flex-col justify-center items-center h-screen p-4 ${
+          darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
+        }`}
+      >
+        <h2 className="text-2xl font-bold mb-4">
+          {error ? "Ошибка" : "Тест не найден"}
+        </h2>
+        <p className={`mb-6 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+          {error || "Запрошенный тест не существует"}
+        </p>
+        <button
+          onClick={() => navigate("/tests")}
+          className={`px-6 py-3 rounded-lg ${
+            darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+          } text-white`}
+        >
+          Вернуться к тестам
+        </button>
+      </div>
+    );
+  }
+
+  const currentQuestionData = questions[currentQuestion];
 
   return (
-    <div className={`container mx-auto p-4 min-h-screen ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"}`}>
-      <h1 className="text-3xl font-bold text-center mb-6">Тест на креативность</h1>
-
-      <div className="relative pt-1 mb-4">
-        <div className="overflow-hidden h-4 mb-2 text-xs flex rounded bg-gray-700">
-          <div style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
-        </div>
-        <p className="text-sm text-gray-400">Вопрос {currentQuestion + 1} из {questions.length}</p>
-      </div>
-
-      <div className={`p-6 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-        <p className="font-semibold flex items-center text-lg">
-          <FaQuestionCircle className="text-blue-500 mr-2" /> {questions[currentQuestion].text}
-        </p>
-        {questions[currentQuestion].options.map((option, index) => (
-          <label key={index} className="block mt-3 cursor-pointer">
-            <input
-              type="radio"
-              name={`question-${currentQuestion}`}
-              value={index}
-              checked={answers[currentQuestion] === index + 1}
-              onChange={() => handleAnswerChange(index)}
-              className="mr-2"
-            />
-            {option}
-          </label>
-        ))}
-      </div>
-
-      <div className="flex justify-between mt-4">
-        <button onClick={prevQuestion} disabled={currentQuestion === 0} className="px-4 py-2 bg-gray-600 text-white rounded disabled:opacity-50">Назад</button>
-        <button onClick={nextQuestion} disabled={currentQuestion === questions.length - 1} className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50">Далее</button>
-      </div>
-
-      <div className="mt-6">
-        {isLoading ? (
-          <div className="flex justify-center items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+    <TestLayout
+      darkMode={darkMode}
+      title={test.title || "Тест на креативность"}
+      description={testDescription}
+      currentQuestion={currentQuestion}
+      totalQuestions={questions.length}
+      onPrev={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
+      onNext={() => {
+        if (answers[currentQuestionData.id] !== undefined) {
+          setCurrentQuestion((prev) => Math.min(questions.length - 1, prev + 1));
+        } else {
+          toast.warning("Пожалуйста, выберите ответ");
+        }
+      }}
+      onSubmit={calculateScore}
+      isSubmitting={isSubmitting}
+      canSubmit={Object.keys(answers).length === questions.length}
+      showResults={totalScore !== null}
+      results={
+        <div className="space-y-4">
+          <div
+            className={`p-4 rounded-lg ${
+              darkMode ? "bg-gray-800" : "bg-blue-50"
+            }`}
+          >
+            <p className="text-xl font-semibold mb-2">{resultData.text}</p>
+            {resultData.description && (
+              <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                {resultData.description}
+              </p>
+            )}
           </div>
-        ) : (
-          <button onClick={calculateScore} className="w-full bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Рассчитать результат</button>
-        )}
-      </div>
-
-      {totalScore !== null && (
-        <div className={`mt-6 p-6 rounded-lg shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-          <h2 className="text-2xl font-bold">Результат:</h2>
-          <p className="text-xl">{getResultText()}</p>
-          <Link to="/" className="flex items-center z-10"><button className="w-full bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Выйти на главную</button></Link>
+          <button
+            onClick={() => {
+              setAnswers({});
+              setCurrentQuestion(0);
+              setTotalScore(null);
+              setResultData({ text: "", description: "" });
+            }}
+            className={`px-4 py-2 rounded-lg mt-4 ${
+              darkMode ? "bg-indigo-600 hover:bg-indigo-700" : "bg-indigo-600 hover:bg-indigo-700"
+            } text-white`}
+          >
+            Пройти снова
+          </button>
         </div>
-      )}
-    </div>
+      }
+      onHome={() => navigate("/")}
+      currentQuestionData={currentQuestionData}
+      answers={answers}
+      handleAnswerChange={handleAnswerChange}
+      isLoading={loading}
+      error={error}
+    />
   );
 };
 

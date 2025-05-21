@@ -52,7 +52,9 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
   const [achievementPage, setAchievementPage] = useState(0);
   const [prevPage, setPrevPage] = useState(0);
   const achievementsPerPage = 4;
+  const [isGraphReady, setIsGraphReady] = useState(false);
   
+  const defaultAvatar = 'https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png';
 
   // Анимации
   const containerVariants = {
@@ -105,6 +107,14 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
     }
   }, [user]);
 
+  // Задержка для рендеринга графика
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsGraphReady(true);
+    }, 0); // Задержка 300 мс для синхронизации с Framer Motion
+    return () => clearTimeout(timer);
+  }, []);
+
   // Подготовка данных для графиков
   const averageScore = testResults.length > 0 
     ? (testResults.reduce((acc, result) => acc + result.score, 0) / testResults.length)
@@ -137,6 +147,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
     );
   }, [testResults, timeframe]);
 
+
   // Данные для круговой диаграммы категорий
   const categoryData = useMemo(() => {
     const categories = testResults.reduce((acc, result) => {
@@ -150,6 +161,15 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
       value
     }));
   }, [testResults]);
+
+  const favoriteCategory = useMemo(() => {
+  if (!Array.isArray(categoryData) || categoryData.length === 0) return null;
+  return categoryData.reduce((max, current) => {
+    const maxValue = typeof max.value === 'number' ? max.value : 0;
+    const currentValue = typeof current.value === 'number' ? current.value : 0;
+    return currentValue > maxValue ? current : max;
+  });
+}, [categoryData]);
 
   // Самый активный день
   const mostActiveDay = useMemo(() => {
@@ -231,6 +251,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
     { id: 8, name: 'Профессионал', earned: testResults.length >= 50, icon: '🎖️', description: 'Пройдите 50 тестов' }
   ];
 
+
   // Обработчики событий
   const handleLogoutClick = () => {
     if (window.confirm('Вы уверены, что хотите выйти?')) {
@@ -242,12 +263,9 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.delete('http://localhost:8080/avatar', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      
-      onAvatarUpdate(response.data.avatar_url);
+      onAvatarUpdate(response.data.avatar_url || defaultAvatar);
       toast.success('Аватар сброшен на стандартный');
     } catch (error) {
       console.error('Error deleting avatar:', error);
@@ -328,6 +346,8 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
     }
   };
 
+
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       darkMode 
@@ -376,7 +396,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                   onMouseLeave={() => setIsHovered(false)}
                 >
                   <img 
-                    src={user.avatar_url || '/images/default-avatar.png'} 
+                    src={user.avatar_url || defaultAvatar} 
                     alt="Аватар" 
                     className="w-full h-full object-cover rounded-full border-4 border-indigo-500 shadow-lg transition-all duration-300 group-hover:border-indigo-400"
                   />
@@ -749,70 +769,69 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                   </motion.h3>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-  {[
-    { 
-      value: testResults.length, 
-      label: 'Пройдено тестов', 
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      darkBgColor: 'bg-purple-950/20',
-      icon: <FaBrain className="text-xl mb-1 text-purple-600 dark:text-purple-400" />
-    },
-    { 
-      value: categoryData[0]?.name || 'Нет данных', 
-      label: 'Любимая категория', 
-      color: 'text-pink-600',
-      bgColor: 'bg-pink-50',
-      darkBgColor: 'bg-pink-950/20',
-      icon: <FaHeart className="text-xl mb-1 text-pink-600 dark:text-pink-400" />
-    },
-    { 
-      value: mostActiveDay.date || 'Нет данных', 
-      label: 'Самый активный день', 
-      color: 'text-sky-600',
-      bgColor: 'bg-sky-50',
-      darkBgColor: 'bg-sky-950/20',
-      icon: <FaCalendarDay className="text-xl mb-1 text-sky-600 dark:text-sky-400" />
-    },
-    { 
-      value: favoriteTest.name || 'Нет данных', 
-      label: 'Любимый тест', 
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      darkBgColor: 'bg-emerald-950/20',
-      icon: <FaClipboardList className="text-xl mb-1 text-emerald-600 dark:text-emerald-400" />
-    },
-  ].map((stat, index) => (
-    <motion.div 
-      key={index}
-      variants={itemVariants}
-      whileHover={{
-        y: -5,
-        transition: { duration: 0.2, ease: "easeInOut" }
-      }}
-      className={`p-4 rounded-lg text-center ${
-        darkMode ? stat.darkBgColor : stat.bgColor
-      } border ${
-        darkMode ? 'border-gray-700' : 'border-gray-200'
-      }`}
-    >
-      <div className="mb-2">
-        {stat.icon}
-      </div>
-      {/* Увеличенный текст только у "Пройдено тестов" */}
-      <p className={`${
-        stat.label === 'Пройдено тестов' ? 'text-3xl' : 'text-xl'
-      } font-bold ${stat.color} transition-colors duration-200`}>
-        {stat.value}
-      </p>
-      <p className={`text-sm mt-1 ${
-        darkMode ? 'text-gray-300' : 'text-gray-600'
-      } transition-colors duration-200`}>
-        {stat.label}
-      </p>
-    </motion.div>
-  ))}
-</div>
+                    {[
+                      { 
+                        value: testResults.length, 
+                        label: 'Пройдено тестов', 
+                        color: 'text-purple-600',
+                        bgColor: 'bg-purple-50',
+                        darkBgColor: 'bg-purple-950/20',
+                        icon: <FaBrain className="text-xl mb-1 text-purple-600 dark:text-purple-400" />
+                      },
+                      { 
+                        value: favoriteCategory?.name || 'Нет данных', 
+                        label: 'Любимая категория',
+                        color: 'text-pink-600',
+                        bgColor: 'bg-pink-50',
+                        darkBgColor: 'bg-pink-950/20',
+                        icon: <FaHeart className="text-xl mb-1 text-pink-600 dark:text-pink-400" />
+                      },
+                      { 
+                        value: mostActiveDay.date || 'Нет данных', 
+                        label: 'Самый активный день', 
+                        color: 'text-sky-600',
+                        bgColor: 'bg-sky-50',
+                        darkBgColor: 'bg-sky-950/20',
+                        icon: <FaCalendarDay className="text-xl mb-1 text-sky-600 dark:text-sky-400" />
+                      },
+                      { 
+                        value: favoriteTest.name || 'Нет данных', 
+                        label: 'Любимый тест', 
+                        color: 'text-emerald-600',
+                        bgColor: 'bg-emerald-50',
+                        darkBgColor: 'bg-emerald-950/20',
+                        icon: <FaClipboardList className="text-xl mb-1 text-emerald-600 dark:text-emerald-400" />
+                      },
+                    ].map((stat, index) => (
+                      <motion.div 
+                        key={index}
+                        variants={itemVariants}
+                        whileHover={{
+                          y: -5,
+                          transition: { duration: 0.2, ease: "easeInOut" }
+                        }}
+                        className={`p-4 rounded-lg text-center ${
+                          darkMode ? stat.darkBgColor : stat.bgColor
+                        } border ${
+                          darkMode ? 'border-gray-700' : 'border-gray-200'
+                        }`}
+                      >
+                        <div className="mb-2">
+                          {stat.icon}
+                        </div>
+                        <p className={`${
+                          stat.label === 'Пройдено тестов' ? 'text-3xl' : 'text-xl'
+                        } font-bold ${stat.color} transition-colors duration-200`}>
+                          {stat.value}
+                        </p>
+                        <p className={`text-sm mt-1 ${
+                          darkMode ? 'text-gray-300' : 'text-gray-600'
+                        } transition-colors duration-200`}>
+                          {stat.label}
+                        </p>
+                      </motion.div>
+                    ))}
+                  </div>
                 </motion.div>
 
                 {/* Графики */}
@@ -827,11 +846,15 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                   <motion.h3 variants={itemVariants} className="text-xl font-bold mb-4">
                     Визуализация данных
                   </motion.h3>
-                  
+
                   {/* Вкладки графиков */}
                   <div className="flex mb-4 border-b">
                     <button
-                      onClick={() => setGraphTab('activity')}
+                      onClick={() => {
+                        setGraphTab('activity');
+                        setIsGraphReady(false); // Сбрасываем для повторной анимации
+                        setTimeout(() => setIsGraphReady(true), 300);
+                      }}
                       className={`px-4 py-2 font-medium ${
                         graphTab === 'activity' 
                           ? darkMode 
@@ -843,7 +866,11 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                       Активность
                     </button>
                     <button
-                      onClick={() => setGraphTab('categories')}
+                      onClick={() => {
+                        setGraphTab('categories');
+                        setIsGraphReady(false); // Сбрасываем для повторной анимации
+                        setTimeout(() => setIsGraphReady(true), 300);
+                      }}
                       className={`px-4 py-2 font-medium ${
                         graphTab === 'categories' 
                           ? darkMode 
@@ -856,119 +883,173 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                     </button>
                   </div>
                   
-                  {/* Контент вкладок */}
-                  {graphTab === 'activity' ? (
-                    <>
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium">График активности</h4>
-                        <div className="flex space-x-2">
-                          <button 
-                            onClick={() => setTimeframe('day')}
-                            className={`px-3 py-1 text-xs rounded ${
-                              timeframe === 'day' 
-                                ? darkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800'
-                                : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            По дням
-                          </button>
-                          <button 
-                            onClick={() => setTimeframe('week')}
-                            className={`px-3 py-1 text-xs rounded ${
-                              timeframe === 'week' 
-                                ? darkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800'
-                                : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            По неделям
-                          </button>
-                          <button 
-                            onClick={() => setTimeframe('month')}
-                            className={`px-3 py-1 text-xs rounded ${
-                              timeframe === 'month' 
-                                ? darkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800'
-                                : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            По месяцам
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="h-[330px] mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={activityData}>
-                            <XAxis 
-                              dataKey="date" 
-                              tick={{ fill: darkMode ? '#e2e8f0' : '#475569' }}
-                            />
-                            <YAxis 
-                              tick={{ fill: darkMode ? '#e2e8f0' : '#475569' }}
-                            />
-                            <Tooltip
-                              contentStyle={{
-                                background: darkMode ? '#1e293b' : '#ffffff',
-                                borderColor: darkMode ? '#4f46e5' : '#6366f1',
-                                borderRadius: '0.5rem',
-                                color: darkMode ? '#f8fafc' : '#1e293b'
-                              }}
-                            />
-                            <Line 
-                              type="monotone" 
-                              dataKey="count" 
-                              stroke={darkMode ? '#8884d8' : '#6366f1'} 
-                              strokeWidth={2}
-                              dot={{ r: 4 }}
-                              activeDot={{ r: 6 }}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h4 className="font-medium mb-2">Распределение по категориям</h4>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={categoryData}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            >
-                              {categoryData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              contentStyle={{
-                                background: darkMode ? '#1e293b' : '#ffffff',
-                                borderColor: darkMode ? '#4f46e5' : '#6366f1',
-                                borderRadius: '0.5rem',
-                                color: darkMode ? '#f8fafc' : '#1e293b'
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      
-                      {/* Аналитика категорий */}
-                      <div className="mt-6">
-                        <h4 className="font-medium mb-2">Анализ категорий</h4>
-                        {categoryData.length > 0 && (
-                          <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                            {`Вы чаще всего выбираете тесты по категории "${categoryData[0].name}"`}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
+                  {/* Анимированный контент графиков */}
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={graphTab}
+                      initial={{ opacity: 0, x: graphTab === 'activity' ? -20 : 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: graphTab === 'activity' ? 20 : -20 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {graphTab === 'activity' ? (
+                        <>
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-medium">График активности</h4>
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => {
+                                  setTimeframe('day');
+                                  setIsGraphReady(false); // Сбрасываем для анимации
+                                  setTimeout(() => setIsGraphReady(true), 300);
+                                }}
+                                className={`px-3 py-1 text-xs rounded ${
+                                  timeframe === 'day' 
+                                    ? darkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800'
+                                    : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                По дням
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setTimeframe('week');
+                                  setIsGraphReady(false); // Сбрасываем для анимации
+                                  setTimeout(() => setIsGraphReady(true), 300);
+                                }}
+                                className={`px-3 py-1 text-xs rounded ${
+                                  timeframe === 'week' 
+                                    ? darkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800'
+                                    : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                По неделям
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setTimeframe('month');
+                                  setIsGraphReady(false); // Сбрасываем для анимации
+                                  setTimeout(() => setIsGraphReady(true), 300);
+                                }}
+                                className={`px-3 py-1 text-xs rounded ${
+                                  timeframe === 'month' 
+                                    ? darkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800'
+                                    : darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                По месяцам
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="h-[330px] mt-4">
+                            {isGraphReady && activityData.length > 0 ? (
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={activityData}>
+                                  <XAxis 
+                                    dataKey="date" 
+                                    tick={{ fill: darkMode ? '#e2e8f0' : '#475569' }}
+                                  />
+                                  <YAxis 
+                                    tick={{ fill: darkMode ? '#e2e8f0' : '#475569' }}
+                                  />
+                                  <Tooltip
+                                    contentStyle={{
+                                      background: darkMode ? '#1e293b' : '#ffffff',
+                                      borderColor: darkMode ? '#4f46e5' : '#6366f1',
+                                      borderRadius: '0.5rem',
+                                      color: darkMode ? '#f8fafc' : '#1e293b'
+                                    }}
+                                  />
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="count" 
+                                    stroke={darkMode ? '#8884d8' : '#6366f1'} 
+                                    strokeWidth={2}
+                                    dot={{ r: 4 }}
+                                    activeDot={{ r: 6 }}
+                                    isAnimationActive={true}
+                                    animationBegin={0}
+                                    animationDuration={1000}
+                                    animationEasing="ease-in-out"
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            ) : (
+                              <div className="h-full flex items-center justify-center">
+                                {activityData.length === 0 ? (
+                                  <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                                    Нет данных для отображения
+                                  </p>
+                                ) : (
+                                  <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="font-medium mb-2">Распределение по категориям</h4>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={categoryData.length > 0 ? categoryData : [{ name: 'Нет данных', value: 1 }]}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  outerRadius={80}
+                                  fill="#8884d8"
+                                  dataKey="value"
+                                  label={({ name, percent }) => 
+                                    categoryData.length > 0 ? `${name} ${(percent * 100).toFixed(0)}%` : 'Нет данных'
+                                  }
+                                  isAnimationActive={true}
+                                  animationBegin={0}
+                                  animationDuration={1000}
+                                  animationEasing="ease-in-out"
+                                >
+                                  {categoryData.length > 0 ? (
+                                    categoryData.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))
+                                  ) : (
+                                    <Cell fill="#ccc" />
+                                  )}
+                                </Pie>
+                                <Tooltip
+                                  contentStyle={{
+                                    background: darkMode ? '#1e293b' : '#ffffff',
+                                    borderColor: darkMode ? '#4f46e5' : '#6366f1',
+                                    borderRadius: '0.5rem',
+                                    color: darkMode ? '#f8fafc' : '#1e293b'
+                                  }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          
+                          <div className="mt-6">
+                            <h4 className="font-medium mb-2">Анализ категорий</h4>
+                            {categoryData.length > 0 ? (
+                              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                {favoriteCategory && (
+                                  `Вы чаще всего выбираете тесты по категории "${favoriteCategory.name}"`
+                                )}
+                              </p>
+                            ) : (
+                              <p className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
+                                Недостаточно данных для анализа категорий
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
                 </motion.div>
+                
               </motion.div>
             ) : (
               <motion.div 
@@ -1152,45 +1233,45 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
               </motion.div>
             )}
           </div>
-        </div>
-      </div>
+        </div> {/* Закрываем основной <div> из строки 331 */}
 
-      {/* Модальное окно с деталями теста */}
-      {selectedResult && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`w-full max-w-2xl p-6 rounded-lg ${
-            darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
-            <h3 className="text-xl font-bold mb-2">{selectedResult.test_name}</h3>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Дата прохождения:</p>
-                <p>{new Date(selectedResult.completed_at).toLocaleString()}</p>
+        {/* Модальное окно с деталями теста */}
+        {selectedResult && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className={`w-full max-w-2xl p-6 rounded-lg ${
+              darkMode ? 'bg-gray-800' : 'bg-white'
+            }`}>
+              <h3 className="text-xl font-bold mb-2">{selectedResult.test_name}</h3>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Дата прохождения:</p>
+                  <p>{new Date(selectedResult.completed_at).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Результат:</p>
+                  <p>{selectedResult.score}%</p>
+                </div>
               </div>
-              <div>
-                <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Результат:</p>
-                <p>{selectedResult.score}%</p>
+              <div className="mb-4">
+                <h4 className="font-medium mb-2">Ответы:</h4>
+                <pre className={`p-3 rounded text-sm overflow-auto max-h-60 ${
+                  darkMode ? 'bg-gray-700' : 'bg-gray-100'
+                }`}>
+                  {JSON.stringify(selectedResult.answers, null, 2)}
+                </pre>
               </div>
+              <button
+                onClick={() => setSelectedResult(null)}
+                className={`px-4 py-2 rounded ${
+                  darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                }`}
+              >
+                Закрыть
+              </button>
             </div>
-            <div className="mb-4">
-              <h4 className="font-medium mb-2">Ответы:</h4>
-              <pre className={`p-3 rounded text-sm overflow-auto max-h-60 ${
-                darkMode ? 'bg-gray-700' : 'bg-gray-100'
-              }`}>
-                {JSON.stringify(selectedResult.answers, null, 2)}
-              </pre>
-            </div>
-            <button
-              onClick={() => setSelectedResult(null)}
-              className={`px-4 py-2 rounded ${
-                darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
-              }`}
-            >
-              Закрыть
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

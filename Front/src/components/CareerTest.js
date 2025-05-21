@@ -1,245 +1,254 @@
-
-import React, { useState } from "react";
-import { FaQuestionCircle } from "react-icons/fa";
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
+import TestLayout from "./TestLayout.js";
+import { toast } from "react-toastify";
 
 const CareerTest = ({ darkMode }) => {
+  const location = useLocation();
+  const slug = location.pathname.split("/")[2] || "career-test";
+  const navigate = useNavigate();
+  const [test, setTest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState(Array(15).fill(null));
+  const [answers, setAnswers] = useState({});
   const [totalScore, setTotalScore] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resultData, setResultData] = useState({
+    text: "",
+    description: "",
+  });
+  const [testDescription, setTestDescription] = useState("");
 
-  const questions = [
-    {
-      text: "Что вам больше нравится делать в свободное время?",
-      options: [
-        "Читать книги, изучать что-то новое.",
-        "Заниматься спортом или активными играми.",
-        "Рисовать, писать, заниматься творчеством.",
-        "Помогать друзьям или решать их проблемы."
-      ]
-    },
-    {
-      text: "Как вы относитесь к работе с числами и расчетами?",
-      options: [
-        "Обожаю, это мое любимое занятие.",
-        "Иногда интересно, но не всегда.",
-        "Предпочитаю избегать этого.",
-        "Мне нравится, если это связано с практическими задачами."
-      ]
-    },
-    {
-      text: "Как вы ведете себя в команде?",
-      options: [
-        "Я предпочитаю работать самостоятельно.",
-        "Я люблю быть лидером и организовывать других.",
-        "Мне нравится сотрудничать и делиться идеями.",
-        "Я помогаю другим и поддерживаю командный дух."
-      ]
-    },
-    {
-      text: "Как вы относитесь к технике и новым технологиям?",
-      options: [
-        "Мне интересно разбираться в технических устройствах.",
-        "Я использую технологии, но не углубляюсь в них.",
-        "Техника — это не мое, я предпочитаю творчество.",
-        "Мне нравится применять технологии для решения задач."
-      ]
-    },
-    {
-      text: "Как вы справляетесь с неожиданными проблемами?",
-      options: [
-        "Анализирую ситуацию и ищу логическое решение.",
-        "Действую быстро и решительно.",
-        "Ищу креативный подход.",
-        "Стараюсь успокоить всех и найти компромисс."
-      ]
-    },
-    {
-      text: "Как вы относитесь к искусству и творчеству?",
-      options: [
-        "Это интересно, но не мое главное увлечение.",
-        "Я люблю творить, но не считаю это профессией.",
-        "Творчество — это моя страсть!",
-        "Мне нравится, если это приносит пользу другим."
-      ]
-    },
-    {
-      text: "Как вы относитесь к работе с людьми?",
-      options: [
-        "Я предпочитаю минимум общения.",
-        "Мне нравится руководить и вдохновлять других.",
-        "Я люблю общаться, но не в больших группах.",
-        "Мне нравится помогать и поддерживать людей."
-      ]
-    },
-    {
-      text: "Как вы относитесь к природе и экологии?",
-      options: [
-        "Мне интересно изучать природу с научной точки зрения.",
-        "Я люблю активный отдых на природе.",
-        "Природа — это источник вдохновения для меня.",
-        "Мне важно заботиться об окружающей среде."
-      ]
-    },
-    {
-      text: "Как вы относитесь к рутинной работе?",
-      options: [
-        "Мне нравится, когда все структурировано и понятно.",
-        "Рутина — это скучно, я предпочитаю динамику.",
-        "Рутина убивает мою креативность.",
-        "Рутина — это нормально, если она приносит пользу."
-      ]
-    },
-    {
-      text: "Как вы относитесь к публичным выступлениям?",
-      options: [
-        "Я не люблю выступать перед людьми.",
-        "Мне нравится быть в центре внимания.",
-        "Я могу выступать, если это связано с творчеством.",
-        "Я выступаю, если это помогает другим."
-      ]
-    },
-    {
-      text: "Как вы относитесь к исследованиям и открытиям?",
-      options: [
-        "Это моя страсть!",
-        "Мне интересно, но только если это применимо на практике.",
-        "Исследования — это скучно, я предпочитаю творить.",
-        "Мне нравится, если исследования помогают людям."
-      ]
-    },
-    {
-      text: "Как вы относитесь к работе с большими объемами информации?",
-      options: [
-        "Мне нравится анализировать данные.",
-        "Я предпочитаю работать с конкретными задачами.",
-        "Большие объемы информации меня утомляют.",
-        "Мне нравится, если информация полезна для других."
-      ]
-    },
-    {
-      text: "Как вы относитесь к работе в условиях стресса?",
-      options: [
-        "Я спокойно справляюсь со стрессом.",
-        "Стресc — это вызов, который меня мотивирует.",
-        "Стресс мешает мне творить.",
-        "Я стараюсь избегать стрессовых ситуаций."
-      ]
-    },
-    {
-      text: "Как вы относитесь к работе, требующей физической активности?",
-      options: [
-        "Я предпочитаю умственный труд.",
-        "Мне нравится, если работа динамичная.",
-        "Физическая активность — это не мое.",
-        "Мне нравится, если работа приносит пользу другим."
-      ]
-    },
-    {
-      text: "Как вы относитесь к работе, связанной с путешествиями?",
-      options: [
-        "Мне нравится, если это связано с исследованиями.",
-        "Я обожаю путешествовать и открывать новое.",
-        "Путешествия — это вдохновение для меня.",
-        "Мне нравится, если путешествия помогают другим."
-      ]
+  const api = axios.create({
+    baseURL: "http://localhost:8080",
+  });
+
+  useEffect(() => {
+    if (!slug) {
+      navigate("/tests");
+      return;
     }
-  ];
 
-  const handleAnswerChange = (value) => {
-    setAnswers((prevAnswers) => {
-      const newAnswers = [...prevAnswers];
-      newAnswers[currentQuestion] = value + 1;
-      return newAnswers;
-    });
-  };
+    const fetchTest = async () => {
+      try {
+        const response = await api.get(`/tests/${slug}`);
+        if (!response.data.test) {
+          throw new Error("Test data is empty");
+        }
+        setTest(response.data.test);
+        setTestDescription(response.data.test.description || "Узнайте, какая карьера вам подходит!");
+      } catch (err) {
+        console.error("Error:", err.response?.data || err.message);
+        setError(err.response?.data?.error || "Не удалось загрузить тест");
+        toast.error("Не удалось загрузить тест");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const nextQuestion = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-    }
-  };
+    fetchTest();
+  }, [slug, navigate]);
 
-  const prevQuestion = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(currentQuestion - 1);
-    }
+  const questions = test?.questions || [];
+
+  const handleAnswerChange = (questionId, value) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: value,
+    }));
+
+    setTimeout(() => {
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion((prev) => prev + 1);
+      }
+    }, 400);
   };
 
   const calculateScore = () => {
-    if (answers.some((answer) => answer === null)) {
-      alert("Пожалуйста, ответьте на все вопросы!");
+    if (Object.keys(answers).length !== questions.length) {
+      toast.warning("Пожалуйста, ответьте на все вопросы");
       return;
     }
-    setIsLoading(true);
-    setTimeout(() => {
-      const score = answers.reduce((sum, answer) => sum + answer, 0);
-      setTotalScore(score);
-      setIsLoading(false);
-    }, 1000);
+
+    setIsSubmitting(true);
+
+    try {
+      if (!test?.scoring_rules) {
+        throw new Error("Правила оценки не найдены");
+      }
+
+      let scoringData = test.scoring_rules;
+      if (typeof scoringData === "string") {
+        scoringData = JSON.parse(scoringData);
+      }
+
+      if (!scoringData?.scoring?.ranges) {
+        throw new Error("Некорректные правила оценки");
+      }
+
+      let total = 0;
+      Object.values(answers).forEach((answer) => {
+        total += answer;
+      });
+
+      const finalScore = total;
+
+      const matchedRange = scoringData.scoring.ranges.find(
+        (range) => finalScore >= (range.min || 0) && finalScore <= range.max
+      ) || {};
+
+      setTotalScore(finalScore);
+      setResultData({
+        text: matchedRange.text || `Результат: ${finalScore} баллов`,
+        description: matchedRange.description || "Ваши ответы указывают на уникальный набор интересов!",
+      });
+
+      return saveTestResult(finalScore, matchedRange.text);
+    } catch (err) {
+      console.error("Ошибка расчета:", err);
+      setResultData({
+        text: "Ошибка расчета",
+        description: err.message,
+      });
+      toast.error("Ошибка при расчете результата");
+      throw err;
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const getResultText = () => {
-    if (totalScore <= 15) return "Вам подходят профессии, связанные с наукой, анализом и технологиями (ученый, аналитик, программист).";
-    if (totalScore <= 30) return "Вам подходят профессии, связанные с лидерством, управлением и активной деятельностью (менеджер, предприниматель, спортсмен).";
-    if (totalScore <= 45) return "Вам подходят творческие профессии, связанные с искусством и самовыражением (художник, писатель, дизайнер).";
-    return "Вам подходят профессии, связанные с помощью людям и социальной работой (психолог, учитель, врач).";
+  const saveTestResult = async (score, resultText) => {
+    try {
+      const payload = {
+        test_slug: slug,
+        test_name: test.title || "Тест на карьерные предпочтения",
+        score: score || 0,
+        result_text: resultText || "Результат не определен",
+        answers: answers,
+        category: "Карьера",
+        completed_at: new Date().toISOString(),
+      };
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Требуется авторизация");
+      }
+
+      await api.post("/test-result", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      toast.success("Результат сохранен!");
+    } catch (error) {
+      console.error("Ошибка сохранения:", error);
+      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      throw error;
+    }
   };
+
+  if (loading) {
+    return (
+      <div
+        className={`flex justify-center items-center h-screen ${
+          darkMode ? "bg-gray-900" : "bg-gray-100"
+        }`}
+      >
+        <div
+          className={`animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 ${
+            darkMode ? "border-blue-400" : "border-blue-500"
+          }`}
+        ></div>
+      </div>
+    );
+  }
+
+  if (error || !test) {
+    return (
+      <div
+        className={`flex flex-col justify-center items-center h-screen p-4 ${
+          darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
+        }`}
+      >
+        <h2 className="text-2xl font-bold mb-4">
+          {error ? "Ошибка" : "Тест не найден"}
+        </h2>
+        <p className={`mb-6 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+          {error || "Запрошенный тест не существует"}
+        </p>
+        <button
+          onClick={() => navigate("/tests")}
+          className={`px-6 py-3 rounded-lg ${
+            darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+          } text-white`}
+        >
+          Вернуться к тестам
+        </button>
+      </div>
+    );
+  }
+
+  const currentQuestionData = questions[currentQuestion];
 
   return (
-    <div className={`container mx-auto p-4 min-h-screen ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"}`}>
-      <h1 className="text-3xl font-bold text-center mb-6">Тест на профориентацию</h1>
-
-      <div className="relative pt-1 mb-4">
-        <div className="overflow-hidden h-4 mb-2 text-xs flex rounded bg-gray-700">
-          <div style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
-        </div>
-        <p className="text-sm text-gray-400">Вопрос {currentQuestion + 1} из {questions.length}</p>
-      </div>
-
-      <div className={`p-6 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-        <p className="font-semibold flex items-center text-lg">
-          <FaQuestionCircle className="text-blue-500 mr-2" /> {questions[currentQuestion].text}
-        </p>
-        {questions[currentQuestion].options.map((option, index) => (
-          <label key={index} className="block mt-3 cursor-pointer">
-            <input
-              type="radio"
-              name={`question-${currentQuestion}`}
-              value={index}
-              checked={answers[currentQuestion] === index + 1}
-              onChange={() => handleAnswerChange(index)}
-              className="mr-2"
-            />
-            {option}
-          </label>
-        ))}
-      </div>
-
-      <div className="flex justify-between mt-4">
-        <button onClick={prevQuestion} disabled={currentQuestion === 0} className="px-4 py-2 bg-gray-600 text-white rounded disabled:opacity-50">Назад</button>
-        <button onClick={nextQuestion} disabled={currentQuestion === questions.length - 1} className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50">Далее</button>
-      </div>
-
-      <div className="mt-6">
-        {isLoading ? (
-          <div className="flex justify-center items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+    <TestLayout
+      darkMode={darkMode}
+      title={test.title || "Тест на карьерные предпочтения"}
+      description={testDescription}
+      currentQuestion={currentQuestion}
+      totalQuestions={questions.length}
+      onPrev={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
+      onNext={() => {
+        if (answers[currentQuestionData.id] !== undefined) {
+          setCurrentQuestion((prev) => Math.min(questions.length - 1, prev + 1));
+        } else {
+          toast.warning("Пожалуйста, выберите ответ");
+        }
+      }}
+      onSubmit={calculateScore}
+      isSubmitting={isSubmitting}
+      canSubmit={Object.keys(answers).length === questions.length}
+      showResults={totalScore !== null}
+      results={
+        <div className="space-y-4">
+          <div
+            className={`p-4 rounded-lg ${
+              darkMode ? "bg-gray-800" : "bg-blue-50"
+            }`}
+          >
+            <p className="text-xl font-semibold mb-2">{resultData.text}</p>
+            {resultData.description && (
+              <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                {resultData.description}
+              </p>
+            )}
           </div>
-        ) : (
-          <button onClick={calculateScore} className="w-full bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Рассчитать результат</button>
-        )}
-      </div>
-
-      {totalScore !== null && (
-        <div className={`mt-6 p-6 rounded-lg shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-          <h2 className="text-2xl font-bold">Результат:</h2>
-          <p className="text-xl">{getResultText()}</p>
-          <Link to="/" className="flex items-center z-10"><button className="w-full bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Выйти на главную</button></Link>
+          <button
+            onClick={() => {
+              setAnswers({});
+              setCurrentQuestion(0);
+              setTotalScore(null);
+              setResultData({ text: "", description: "" });
+            }}
+            className={`px-4 py-2 rounded-lg mt-4 ${
+              darkMode ? "bg-indigo-600 hover:bg-indigo-700" : "bg-indigo-600 hover:bg-indigo-700"
+            } text-white`}
+          >
+            Пройти снова
+          </button>
         </div>
-      )}
-    </div>
+      }
+      onHome={() => navigate("/")}
+      currentQuestionData={currentQuestionData}
+      answers={answers}
+      handleAnswerChange={handleAnswerChange}
+      isLoading={loading}
+      error={error}
+    />
   );
 };
 
