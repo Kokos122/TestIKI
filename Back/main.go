@@ -98,13 +98,13 @@ func main() {
 	}))
 
 	// Настройка rate limiting
-	rate, err := limiter.NewRateFromFormatted("5-5M") // 5 попыток за 5 минут
+	rate, err := limiter.NewRateFromFormatted("1-M") // 1 запрос за 1 минуту (эквивалентно 5 запросов за 5 минут)
 	if err != nil {
 		log.Fatalf("Failed to parse rate: %v", err)
 	}
 	store := memory.NewStore()
 	limiterInstance := limiter.New(store, rate)
-	limiterMiddleware := ginlimiter.NewMiddleware(limiterInstance) // Без дополнительных опций
+	limiterMiddleware := ginlimiter.NewMiddleware(limiterInstance)
 
 	// Публичные маршруты
 	router.POST("/register", handlers.Register)
