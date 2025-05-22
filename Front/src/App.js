@@ -21,7 +21,8 @@ import DuneTest from "./components/DuneTest.js";
 import MemoryTest from "./components/MemoryTest.js";
 import WalkingDeadTest from "./components/WalkingDeadTest.js";
 import SmesharikiTest from "./components/SmesharikiTest.js";
-
+import WursTest from "./components/WursTest.js";
+import BeckHopelessnessTest from "./components/BeckHopelessnessTest.js";
 const AppWrapper = () => (
   <Router>
     <App />
@@ -222,6 +223,8 @@ const App = () => {
           <Route path="/memory-test" element={<MemoryTest darkMode={darkMode} />} />
           <Route path="/walking-dead-test" element={<WalkingDeadTest darkMode={darkMode} />} />
           <Route path="/smeshariki-test" element={<SmesharikiTest darkMode={darkMode} />} />
+          <Route path="/wurs-25" element={<WursTest darkMode={darkMode} />} />
+          <Route path="/beck-hopelessness-test" element={<BeckHopelessnessTest darkMode={darkMode} />} />
         </Routes>
       </div>
 
