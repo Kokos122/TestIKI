@@ -9,6 +9,7 @@ import (
 	"myproject/cloudinary"
 	"myproject/database"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -21,14 +22,16 @@ import (
 )
 
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-	Email    string `json:"email" binding:"required"`
+	Username        string `json:"username" binding:"required"`
+	Password        string `json:"password" binding:"required"`
+	Email           string `json:"email" binding:"required"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
 }
 
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username     string `json:"username" binding:"required"`
+	Password     string `json:"password" binding:"required"`
+	CaptchaToken string `json:"captchaToken"`
 }
 
 type TestResultRequest struct {
@@ -68,7 +71,7 @@ func validatePassword(password string) error {
 	}
 
 	if !hasUpper || !hasLower || !hasNumber || !hasSpecial {
-		return errors.New("password must contain uppercase, lowercase, number and special character")
+		return errors.New("password must contain uppercase, lowercase, number, and special character")
 	}
 	return nil
 }
@@ -85,6 +88,25 @@ func isValidEmail(email string) bool {
 
 	parts := strings.Split(email, "@")
 	return len(parts[0]) <= 64
+}
+
+func VerifyCaptcha(token string) (bool, error) {
+	resp, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
+		"secret":   {os.Getenv("RECAPTCHA_SECRET_KEY")},
+		"response": {token},
+	})
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false, err
+	}
+	return result.Success, nil
 }
 
 func Register(c *gin.Context) {
@@ -104,10 +126,17 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	if req.Password != req.ConfirmPassword {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Passwords do not match"})
+		return
+	}
+
 	user := database.User{
-		Username: req.Username,
-		Password: req.Password,
-		Email:    req.Email,
+		Username:      req.Username,
+		Password:      req.Password,
+		Email:         req.Email,
+		LoginAttempts: 0,
+		LockUntil:     nil,
 	}
 
 	if err := user.HashPassword(); err != nil {
@@ -129,6 +158,11 @@ func Register(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
+	if c.Writer.Status() == http.StatusTooManyRequests {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many login attempts, try again later"})
+		return
+	}
+
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
@@ -146,9 +180,43 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Проверка блокировки
+	if user.LockUntil != nil && time.Now().Before(*user.LockUntil) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Account is locked, try again later"})
+		return
+	}
+
+	// Проверка капчи после 3 попыток
+	if user.LoginAttempts >= 3 && req.CaptchaToken != "" {
+		if valid, err := VerifyCaptcha(req.CaptchaToken); err != nil || !valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid CAPTCHA"})
+			return
+		}
+	}
+
+	// Проверка пароля
 	if err := user.CheckPassword(req.Password); err != nil {
+		// Увеличиваем счетчик попыток
+		user.LoginAttempts++
+		if user.LoginAttempts >= 5 {
+			lockUntil := time.Now().Add(15 * time.Minute)
+			user.LockUntil = &lockUntil
+			user.LoginAttempts = 0
+		}
+		if err := database.DB.Save(&user).Error; err != nil {
+			log.Printf("Database error: %v", err)
+		}
+		// Задержка ответа
+		time.Sleep(2 * time.Second)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
+	}
+
+	// Сбрасываем счетчик попыток при успешном входе
+	user.LoginAttempts = 0
+	user.LockUntil = nil
+	if err := database.DB.Save(&user).Error; err != nil {
+		log.Printf("Database error: %v", err)
 	}
 
 	token, err := auth.GenerateToken(user.Username)
@@ -164,11 +232,12 @@ func Login(c *gin.Context) {
 			"id":         user.ID,
 			"username":   user.Username,
 			"email":      user.Email,
-			"avatar_url": user.AvatarURL, // Добавлено поле avatar_url
+			"avatar_url": user.AvatarURL,
 		},
 	})
 }
 
+// Остальные функции остаются без изменений
 func GetCurrentUser(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -191,14 +260,12 @@ func GetCurrentUser(c *gin.Context) {
 func UploadAvatar(c *gin.Context) {
 	username := c.MustGet("username").(string)
 
-	// 1. Получаем текущего пользователя
 	var user database.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
-	// 2. Получаем файл
 	fileHeader, err := c.FormFile("avatar")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
@@ -212,7 +279,6 @@ func UploadAvatar(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// 3. Инициализируем Cloudinary
 	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
 	apiKey := os.Getenv("CLOUDINARY_API_KEY")
 	apiSecret := os.Getenv("CLOUDINARY_API_SECRET")
@@ -223,7 +289,6 @@ func UploadAvatar(c *gin.Context) {
 		return
 	}
 
-	// 4. Если у пользователя уже есть аватар (не дефолтный), удаляем старый
 	if user.AvatarURL != "" && user.AvatarURL != "/images/default-avatar.png" {
 		publicID := cloudinary.ExtractPublicID(user.AvatarURL)
 		if publicID != "" {
@@ -232,23 +297,20 @@ func UploadAvatar(c *gin.Context) {
 			})
 			if err != nil {
 				log.Printf("Failed to delete old avatar: %v", err)
-				// Продолжаем в любом случае
 			}
 		}
 	}
 
-	// 5. Загружаем новый файл
 	avatarURL, err := cloudinaryService.UploadAvatar(
 		c.Request.Context(),
 		file,
-		username, // Используем username как идентификатор
+		username,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Upload failed: " + err.Error()})
 		return
 	}
 
-	// 6. Сохраняем URL в БД
 	if err := database.DB.Model(&user).Update("avatar_url", avatarURL).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database update failed"})
 		return
@@ -256,15 +318,14 @@ func UploadAvatar(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"avatar_url": avatarURL})
 }
+
 func UpdateAvatar(c *gin.Context) {
-	// Получаем username из контекста (установлен в AuthMiddleware)
 	username, exists := c.Get("username")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	// Валидация входных данных
 	var req struct {
 		AvatarURL string `json:"avatar_url" binding:"required,url"`
 	}
@@ -278,7 +339,6 @@ func UpdateAvatar(c *gin.Context) {
 		return
 	}
 
-	// Проверка URL (дополнительная валидация)
 	if !strings.HasPrefix(req.AvatarURL, "https://res.cloudinary.com/") {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Only Cloudinary URLs are allowed",
@@ -286,7 +346,6 @@ func UpdateAvatar(c *gin.Context) {
 		return
 	}
 
-	// Обновление в базе данных
 	result := database.DB.Model(&database.User{}).
 		Where("username = ?", username).
 		Update("avatar_url", req.AvatarURL)
@@ -316,7 +375,6 @@ func UpdateAvatar(c *gin.Context) {
 func DeleteAvatar(c *gin.Context) {
 	username := c.MustGet("username").(string)
 
-	// 1. Получаем текущего пользователя
 	var user database.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -329,7 +387,6 @@ func DeleteAvatar(c *gin.Context) {
 		return
 	}
 
-	// 3. Инициализируем Cloudinary
 	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
 	apiKey := os.Getenv("CLOUDINARY_API_KEY")
 	apiSecret := os.Getenv("CLOUDINARY_API_SECRET")
@@ -340,7 +397,6 @@ func DeleteAvatar(c *gin.Context) {
 		return
 	}
 
-	// 4. Удаляем аватар из Cloudinary
 	publicID := cloudinary.ExtractPublicID(user.AvatarURL)
 	if publicID != "" {
 		_, err := cloudinaryService.Cld.Upload.Destroy(c.Request.Context(), uploader.DestroyParams{
@@ -363,13 +419,11 @@ func DeleteAvatar(c *gin.Context) {
 }
 
 func Logout(c *gin.Context) {
-	// Здесь можно добавить логику инвалидации токена, если нужно
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Logged out successfully",
 	})
 }
 
-// Получение списка тестов
 func GetTests(c *gin.Context) {
 	var tests []database.Test
 	if err := database.DB.Where("is_active = ?", true).Find(&tests).Error; err != nil {
@@ -379,7 +433,6 @@ func GetTests(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"tests": tests})
 }
 
-// Получение конкретного теста
 func GetTest(c *gin.Context) {
 	slug := c.Param("slug")
 
@@ -391,11 +444,10 @@ func GetTest(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Test not found"})
 		return
 	}
-
+	log.Printf("Found test: %+v", test)
 	c.JSON(http.StatusOK, gin.H{"test": test})
 }
 
-// Сохранение результатов теста (обновленная версия)
 func SaveTestResult(c *gin.Context) {
 	fmt.Println("📩 Запрос на сохранение теста получен")
 

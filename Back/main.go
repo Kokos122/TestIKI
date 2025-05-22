@@ -14,6 +14,9 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/ulule/limiter/v3"
+	ginlimiter "github.com/ulule/limiter/v3/drivers/middleware/gin"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"go.uber.org/zap"
 )
 
@@ -32,7 +35,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Добавляем username и userID в контекст
 		c.Set("username", claims.Username)
 
 		var user database.User
@@ -46,35 +48,28 @@ func AuthMiddleware() gin.HandlerFunc {
 }
 
 func main() {
-	// Инициализация логгера zap
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	defer logger.Sync()
 
-	// Загрузка .env файла
 	if err := godotenv.Load(); err != nil {
 		logger.Info("Warning: .env file not found")
 	}
 
-	// Проверка обязательных переменных окружения
 	if os.Getenv("JWT_SECRET") == "" {
 		logger.Fatal("JWT_SECRET environment variable is required")
 	}
 
-	// Инициализация БД
 	database.Connect()
 	database.AutoMigrate()
 
-	// Настройка роутера Gin
 	router := gin.Default()
 
-	// Создаем совместимый с Gin логгер
 	gin.DisableConsoleColor()
 	gin.DefaultWriter = zap.NewStdLog(logger).Writer()
 
-	// Middleware для логирования запросов
 	router.Use(func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
@@ -93,19 +88,27 @@ func main() {
 		)
 	})
 
-	// Настройка CORS
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true, // Важно!
+		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// Настройка rate limiting
+	rate, err := limiter.NewRateFromFormatted("1-M") // 1 запрос за 1 минуту (эквивалентно 5 запросов за 5 минут)
+	if err != nil {
+		log.Fatalf("Failed to parse rate: %v", err)
+	}
+	store := memory.NewStore()
+	limiterInstance := limiter.New(store, rate)
+	limiterMiddleware := ginlimiter.NewMiddleware(limiterInstance)
+
 	// Публичные маршруты
 	router.POST("/register", handlers.Register)
-	router.POST("/login", handlers.Login)
+	router.POST("/login", limiterMiddleware, handlers.Login)
 	router.POST("/logout", handlers.Logout)
 	router.GET("/tests/:slug", handlers.GetTest)
 	router.GET("/tests", handlers.GetTests)
@@ -122,7 +125,6 @@ func main() {
 		authGroup.PATCH("/update-profile", handlers.UpdateProfile)
 	}
 
-	// Запуск сервера
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
