@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import axios from 'axios';
 
@@ -21,7 +21,8 @@ import DuneTest from "./components/DuneTest.js";
 import MemoryTest from "./components/MemoryTest.js";
 import WalkingDeadTest from "./components/WalkingDeadTest.js";
 import SmesharikiTest from "./components/SmesharikiTest.js";
-
+import WursTest from "./components/WursTest.js";
+import BeckHopelessnessTest from "./components/BeckHopelessnessTest.js";
 const AppWrapper = () => (
   <Router>
     <App />
@@ -41,6 +42,11 @@ const App = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   const api = axios.create({
     baseURL: 'http://localhost:8080'
@@ -73,6 +79,7 @@ const App = () => {
       });
       return true;
     } catch (error) {
+      console.error('Verify auth error:', error);
       handleLogout();
       return false;
     }
@@ -109,21 +116,21 @@ const App = () => {
 
   const handleLogout = async () => {
     try {
-        await api.post('/logout');
+      await api.post('/logout');
     } catch (error) {
-        console.error('Logout error:', error);
+      console.error('Logout error:', error);
     } finally {
-        localStorage.removeItem('token');
-        setIsAuthenticated(false);
-        setCurrentUser({
-            id: null,
-            username: '',
-            email: '',
-            avatar_url: '/images/default-avatar.png'
-        });
-        navigate('/');
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+      setCurrentUser({
+        id: null,
+        username: '',
+        email: '',
+        avatar_url: '/images/default-avatar.png'
+      });
+      navigate('/');
     }
-};
+  };
 
   const updateAvatar = (newAvatarUrl) => {
     setCurrentUser(prev => ({
@@ -189,19 +196,23 @@ const App = () => {
                   user={currentUser} 
                   darkMode={darkMode} 
                   onAvatarUpdate={updateAvatar}
-                  onLogout={handleLogout}  // <- Вот это важно добавить
+                  onLogout={handleLogout}
                 /> : 
                 <Navigate to="/" />
             }
           />
-          <Route path="/tests" element={
-            <TestsPage
-              darkMode={darkMode}
-              onSidebarToggle={toggleSidebar}
-              onProfileClick={handleProfileClick}
-              onThemeToggle={toggleTheme}
-            />
-          } />
+          <Route
+            path="/tests"
+            element={
+              <TestsPage
+                darkMode={darkMode}
+                isAuthenticated={isAuthenticated} // Добавлено
+                onSidebarToggle={toggleSidebar}
+                onProfileClick={handleProfileClick}
+                onThemeToggle={toggleTheme}
+              />
+            }
+          />
           <Route path="/anxiety-test" element={<AnxietyTest darkMode={darkMode} />} />
           <Route path="/love-test" element={<LoveTest darkMode={darkMode} />} />
           <Route path="/career-test" element={<CareerTest darkMode={darkMode} />} />
@@ -212,6 +223,8 @@ const App = () => {
           <Route path="/memory-test" element={<MemoryTest darkMode={darkMode} />} />
           <Route path="/walking-dead-test" element={<WalkingDeadTest darkMode={darkMode} />} />
           <Route path="/smeshariki-test" element={<SmesharikiTest darkMode={darkMode} />} />
+          <Route path="/wurs-25" element={<WursTest darkMode={darkMode} />} />
+          <Route path="/beck-hopelessness-test" element={<BeckHopelessnessTest darkMode={darkMode} />} />
         </Routes>
       </div>
 

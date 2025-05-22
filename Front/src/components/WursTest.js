@@ -4,9 +4,9 @@ import axios from "axios";
 import TestLayout from "./TestLayout.js";
 import { toast } from "react-toastify";
 
-const FlagsTest = ({ darkMode }) => {
+const ADHDTest = ({ darkMode }) => {
   const location = useLocation();
-  const slug = location.pathname.split("/")[1]; // Получаем slug из пути, например, "flags-test"
+  const slug = location.pathname.split("/")[1]; // e.g., "adhd-test"
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +56,7 @@ const FlagsTest = ({ darkMode }) => {
   const handleAnswerChange = (questionId, value) => {
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: value,
+      [questionId]: parseInt(value), // Ensure value is a number
     }));
 
     setTimeout(() => {
@@ -88,22 +88,22 @@ const FlagsTest = ({ darkMode }) => {
         throw new Error("Некорректные правила оценки");
       }
 
-      let correctAnswers = 0;
-      questions.forEach((question) => {
-        if (answers[question.id] === question.answer) {
-          correctAnswers += 1;
-        }
+      // Calculate total score by summing answers
+      let total = 0;
+      Object.values(answers).forEach((answer) => {
+        total += answer;
       });
 
-      const finalScore = correctAnswers;
+      const finalScore = total;
 
+      // Find matching range based on score
       const matchedRange = scoringData.scoring.ranges.find(
         (range) => finalScore >= (range.min || 0) && finalScore <= range.max
       ) || {};
 
       setTotalScore(finalScore);
       setResultData({
-        text: matchedRange.text || `Результат: ${finalScore} из ${questions.length}`,
+        text: matchedRange.text || `Результат: ${finalScore}`,
         description: matchedRange.description || "",
       });
 
@@ -124,7 +124,7 @@ const FlagsTest = ({ darkMode }) => {
   const saveTestResult = async (score, resultText) => {
     try {
       const payload = {
-        test_slug: slug, // Используем slug вместо test_id
+        test_slug: slug,
         test_name: test.title,
         score: score || 0,
         result_text: resultText || "Результат не определен",
@@ -230,18 +230,7 @@ const FlagsTest = ({ darkMode }) => {
         </div>
       }
       onHome={() => navigate("/")}
-      currentQuestionData={{
-        ...currentQuestionData,
-        customContent: currentQuestionData?.image ? (
-          <div className="mb-4">
-            <img
-              src={currentQuestionData.image}
-              alt="Флаг"
-              className="w-full max-w-xs mx-auto rounded-lg shadow-md"
-            />
-          </div>
-        ) : null,
-      }}
+      currentQuestionData={currentQuestionData}
       answers={answers}
       handleAnswerChange={handleAnswerChange}
       isLoading={loading}
@@ -250,4 +239,4 @@ const FlagsTest = ({ darkMode }) => {
   );
 };
 
-export default FlagsTest;
+export default ADHDTest;

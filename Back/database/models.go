@@ -23,7 +23,7 @@ type User struct {
 }
 
 type Test struct {
-	gorm.Model
+	ID           uint           `gorm:"primaryKey" json:"id"`
 	Title        string         `json:"title"`
 	Description  string         `json:"description"`
 	Category     string         `json:"category"`
@@ -31,6 +31,9 @@ type Test struct {
 	ScoringRules datatypes.JSON `json:"scoring_rules" gorm:"type:jsonb"`
 	TimeLimit    int            `json:"time_limit"`
 	IsActive     bool           `json:"is_active" gorm:"default:true"`
+	CreatedAt    time.Time      `json:"created_at" gorm:"default:now()"`
+	UpdatedAt    time.Time      `json:"updated_at" gorm:"default:now()"`
+	Slug         string         `json:"slug" gorm:"unique;not null"`
 }
 
 type TestResult struct {
@@ -42,6 +45,7 @@ type TestResult struct {
 	ResultText  string         `json:"result_text"`
 	Answers     datatypes.JSON `json:"answers" gorm:"type:jsonb"`
 	CompletedAt time.Time      `json:"completed_at"`
+	Category    string         `json:"category"`
 }
 
 func (u *User) HashPassword() error {

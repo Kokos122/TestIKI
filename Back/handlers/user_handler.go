@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"myproject/auth"
 	"myproject/cloudinary"
@@ -37,6 +38,11 @@ type TestResultRequest struct {
 	TestName   string `json:"test_name" binding:"required"`
 	Score      int    `json:"score" binding:"required"`
 	ResultText string `json:"result_text" binding:"required"`
+}
+
+type UpdateProfileRequest struct {
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
 }
 
 func validatePassword(password string) error {
@@ -233,21 +239,21 @@ func Login(c *gin.Context) {
 
 // Остальные функции остаются без изменений
 func GetCurrentUser(c *gin.Context) {
-	username := c.MustGet("username").(string)
-
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
 	var user database.User
-	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{
-		"user": gin.H{
-			"id":         user.ID,
-			"username":   user.Username,
-			"email":      user.Email,
-			"avatar_url": user.AvatarURL,
-		},
+		"username":   user.Username,
+		"email":      user.Email,
+		"avatar_url": user.AvatarURL,
+		"created_at": user.CreatedAt.Format(time.RFC3339),
 	})
 }
 
@@ -375,7 +381,8 @@ func DeleteAvatar(c *gin.Context) {
 		return
 	}
 
-	if user.AvatarURL == "" || user.AvatarURL == "/images/default-avatar.png" {
+	// 2. Если аватар уже дефолтный, ничего не делаем
+	if user.AvatarURL == "" || user.AvatarURL == "https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png" {
 		c.JSON(http.StatusOK, gin.H{"message": "Avatar already removed"})
 		return
 	}
@@ -402,12 +409,13 @@ func DeleteAvatar(c *gin.Context) {
 		}
 	}
 
-	if err := database.DB.Model(&user).Update("avatar_url", "/images/default-avatar.png").Error; err != nil {
+	// 5. Устанавливаем дефолтный аватар в БД
+	if err := database.DB.Model(&user).Update("avatar_url", "https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png").Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database update failed"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Avatar removed successfully", "avatar_url": "/images/default-avatar.png"})
+	c.JSON(http.StatusOK, gin.H{"message": "Avatar removed successfully", "avatar_url": "https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png"})
 }
 
 func Logout(c *gin.Context) {
@@ -426,58 +434,95 @@ func GetTests(c *gin.Context) {
 }
 
 func GetTest(c *gin.Context) {
-	testID := c.Param("id")
+	slug := c.Param("slug")
 
 	var test database.Test
-	result := database.DB.First(&test, testID)
+	result := database.DB.Table("tests").Where("slug = ? AND is_active = ?", slug, true).First(&test)
+
 	if result.Error != nil {
-		log.Printf("Error fetching test ID %s: %v", testID, result.Error)
+		log.Printf("Error fetching test: %v", result.Error)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Test not found"})
 		return
 	}
-
 	log.Printf("Found test: %+v", test)
 	c.JSON(http.StatusOK, gin.H{"test": test})
 }
 
 func SaveTestResult(c *gin.Context) {
-	username := c.MustGet("username").(string)
+	fmt.Println("📩 Запрос на сохранение теста получен")
+
+	usernameAny, exists := c.Get("username")
+	if !exists {
+		fmt.Println("❌ Username не найден в контексте")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	username := usernameAny.(string)
+
 	var req struct {
-		TestID     uint                   `json:"test_id" binding:"required"`
+		TestSlug   string                 `json:"test_slug" binding:"required"` // Изменено с test_id
 		TestName   string                 `json:"test_name" binding:"required"`
-		Score      int                    `json:"score" binding:"required"`
-		ResultText string                 `json:"result_text" binding:"required"`
+		Score      int                    `json:"score"`
+		ResultText string                 `json:"result_text"`
 		Answers    map[string]interface{} `json:"answers"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		fmt.Println("❌ Ошибка биндинга JSON:", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
+	// Проверка данных вручную
+	if req.TestSlug == "" || req.TestName == "" || req.ResultText == "" {
+		fmt.Println("⚠️ Недостаточно данных:", req)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Недостаточно данных для сохранения"})
+		return
+	}
+
+	// Получаем test_id по slug
+	var test database.Test
+	if err := database.DB.Where("slug = ?", req.TestSlug).First(&test).Error; err != nil {
+		fmt.Println("❌ Тест не найден:", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Test not found"})
+		return
+	}
+
+	fmt.Printf("📦 Данные запроса:\nTestSlug: %v\nTestName: %s\nScore: %d\nResult: %s\nAnswers: %#v\n",
+		req.TestSlug, req.TestName, req.Score, req.ResultText, req.Answers)
+
 	var user database.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		fmt.Println("❌ Пользователь не найден:", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
 	answersJSON, err := json.Marshal(req.Answers)
 	if err != nil {
+		fmt.Println("❌ Ошибка сериализации answers:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not process answers"})
 		return
 	}
 
+	fmt.Println("✅ Answers JSON:", string(answersJSON))
+
 	testResult := database.TestResult{
 		UserID:      user.ID,
-		TestID:      req.TestID,
+		TestID:      test.ID, // Используем test.ID
 		TestName:    req.TestName,
 		Score:       req.Score,
 		ResultText:  req.ResultText,
 		Answers:     answersJSON,
 		CompletedAt: time.Now(),
+		Category:    test.Category,
 	}
 
+	fmt.Println("💾 Сохраняем результат:")
+	fmt.Printf("UserID: %v\nTestID: %v\nScore: %d\nText: %s\n", user.ID, test.ID, req.Score, req.ResultText)
+
 	if err := database.DB.Create(&testResult).Error; err != nil {
+		fmt.Println("❌ Ошибка при сохранении в БД:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save test result"})
 		return
 	}
@@ -490,5 +535,76 @@ func SaveTestResult(c *gin.Context) {
 			"score":       testResult.Score,
 			"result_text": testResult.ResultText,
 		},
+	})
+}
+
+// Получение результатов тестов для профиля
+// handlers.go
+func GetUserTestResults(c *gin.Context) {
+	username := c.MustGet("username").(string)
+
+	// Находим пользователя по имени
+	var user database.User
+	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Получаем результаты тестов из test_results, включая category
+	var testResults []database.TestResult
+	err := database.DB.
+		Where("user_id = ?", user.ID).
+		Order("completed_at DESC").
+		Find(&testResults).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch test results"})
+		return
+	}
+
+	// Возвращаем результаты
+	c.JSON(http.StatusOK, gin.H{
+		"test_results": testResults,
+	})
+}
+
+// UpdateProfile handles updating the user's profile
+func UpdateProfile(c *gin.Context) {
+	// Get userID from context (set by AuthMiddleware)
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Parse request body
+	var req UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
+
+	// Find the user in the database
+	var user database.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Update user fields
+	user.Username = req.Username
+	user.Email = req.Email
+
+	// Save changes to the database
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		return
+	}
+
+	// Return updated user data
+	c.JSON(http.StatusOK, gin.H{
+		"username":   user.Username,
+		"email":      user.Email,
+		"created_at": user.CreatedAt.Format(time.RFC3339),
 	})
 }

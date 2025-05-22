@@ -4,9 +4,9 @@ import axios from "axios";
 import TestLayout from "./TestLayout.js";
 import { toast } from "react-toastify";
 
-const FlagsTest = ({ darkMode }) => {
+const BeckHopelessnessTest = ({ darkMode }) => {
   const location = useLocation();
-  const slug = location.pathname.split("/")[1]; // Получаем slug из пути, например, "flags-test"
+  const slug = location.pathname.split("/")[1]; // e.g., "beck-hopelessness-test"
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,6 +37,18 @@ const FlagsTest = ({ darkMode }) => {
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
+        console.log("Fetched test data:", response.data.test); // Debug
+        // Validate questions
+        if (response.data.test.questions.length !== 20) {
+          console.warn(`Expected 20 questions, received ${response.data.test.questions.length}`);
+          toast.warn(`Ожидалось 20 вопросов, получено ${response.data.test.questions.length}`);
+        }
+        response.data.test.questions.forEach((q) => {
+          if (!q.options || q.options.length !== 2 || (q.options[0] !== "0" && q.options[0] !== "Нет") || (q.options[1] !== "1" && q.options[1] !== "Да")) {
+            console.warn(`Некорректные опции для вопроса ${q.id}:`, q.options);
+            toast.warn(`Некорректные опции для вопроса ${q.id}: ${JSON.stringify(q.options)}`);
+          }
+        });
         setTest(response.data.test);
         setTestDescription(response.data.test.description || "");
       } catch (err) {
@@ -54,9 +66,33 @@ const FlagsTest = ({ darkMode }) => {
   const questions = test?.questions || [];
 
   const handleAnswerChange = (questionId, value) => {
+    const question = questions.find((q) => q.id === questionId);
+    console.log(
+      "handleAnswerChange - Question ID:",
+      questionId,
+      "Value:",
+      value,
+      "Type:",
+      typeof value,
+      "Question:",
+      question?.text,
+      "Options:",
+      question?.options
+    ); // Enhanced debug
+    let numericValue;
+    if (value === "Yes" || value === "Да" || value === "1" || value === 1) {
+      numericValue = 1;
+    } else if (value === "No" || value === "Нет" || value === "0" || value === 0) {
+      numericValue = 0;
+    } else {
+      console.error("Invalid value received:", value, "for question ID:", questionId, "Question:", question?.text);
+      toast.error(`Недопустимое значение ответа: ${value} для вопроса ${questionId} (${question?.text}). Выберите 'Да' или 'Нет'`);
+      return;
+    }
+
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: value,
+      [questionId]: numericValue,
     }));
 
     setTimeout(() => {
@@ -88,14 +124,19 @@ const FlagsTest = ({ darkMode }) => {
         throw new Error("Некорректные правила оценки");
       }
 
-      let correctAnswers = 0;
-      questions.forEach((question) => {
-        if (answers[question.id] === question.answer) {
-          correctAnswers += 1;
+      let total = 0;
+      Object.entries(answers).forEach(([questionId, answer]) => {
+        if (answer !== 0 && answer !== 1) {
+          throw new Error(`Недопустимое значение ответа для вопроса ${questionId}: ${answer}`);
         }
+        total += answer;
       });
 
-      const finalScore = correctAnswers;
+      if (total > 20) {
+        throw new Error("Суммарный балл не может превышать 20");
+      }
+
+      const finalScore = total;
 
       const matchedRange = scoringData.scoring.ranges.find(
         (range) => finalScore >= (range.min || 0) && finalScore <= range.max
@@ -103,7 +144,7 @@ const FlagsTest = ({ darkMode }) => {
 
       setTotalScore(finalScore);
       setResultData({
-        text: matchedRange.text || `Результат: ${finalScore} из ${questions.length}`,
+        text: matchedRange.text || `Результат: ${finalScore}`,
         description: matchedRange.description || "",
       });
 
@@ -124,7 +165,7 @@ const FlagsTest = ({ darkMode }) => {
   const saveTestResult = async (score, resultText) => {
     try {
       const payload = {
-        test_slug: slug, // Используем slug вместо test_id
+        test_slug: slug,
         test_name: test.title,
         score: score || 0,
         result_text: resultText || "Результат не определен",
@@ -230,18 +271,7 @@ const FlagsTest = ({ darkMode }) => {
         </div>
       }
       onHome={() => navigate("/")}
-      currentQuestionData={{
-        ...currentQuestionData,
-        customContent: currentQuestionData?.image ? (
-          <div className="mb-4">
-            <img
-              src={currentQuestionData.image}
-              alt="Флаг"
-              className="w-full max-w-xs mx-auto rounded-lg shadow-md"
-            />
-          </div>
-        ) : null,
-      }}
+      currentQuestionData={currentQuestionData}
       answers={answers}
       handleAnswerChange={handleAnswerChange}
       isLoading={loading}
@@ -250,4 +280,4 @@ const FlagsTest = ({ darkMode }) => {
   );
 };
 
-export default FlagsTest;
+export default BeckHopelessnessTest;

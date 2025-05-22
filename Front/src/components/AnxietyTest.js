@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { FaQuestionCircle } from "react-icons/fa";
+import TestLayout from "./TestLayout.js";
+import { toast } from "react-toastify";
 
 const AnxietyTest = ({ darkMode }) => {
-  const { id } = useParams();
+  const location = useLocation();
+  const slug = location.pathname.split("/")[1]; // Получаем slug из пути, например, "anxiety-test"
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,94 +15,139 @@ const AnxietyTest = ({ darkMode }) => {
   const [answers, setAnswers] = useState({});
   const [totalScore, setTotalScore] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resultData, setResultData] = useState({
+    text: "",
+    description: "",
+  });
+  const [testDescription, setTestDescription] = useState("");
 
-  // Загрузка теста из API
+  const api = axios.create({
+    baseURL: "http://localhost:8080",
+  });
+
   useEffect(() => {
-    if (!id) {
-      setError("Test ID is missing");
-      setLoading(false);
+    if (!slug) {
+      navigate("/tests");
       return;
     }
 
     const fetchTest = async () => {
       try {
-        const response = await axios.get(`http://localhost:8080/tests/${id}`);
+        const response = await api.get(`/tests/${slug}`);
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
         setTest(response.data.test);
+        setTestDescription(response.data.test.description || "");
       } catch (err) {
-        console.error("Error fetching test:", err);
-        setError(err.response?.data?.error || "Failed to load test");
+        console.error("Error:", err.response?.data || err.message);
+        setError(err.response?.data?.error || "Не удалось загрузить тест");
+        toast.error("Не удалось загрузить тест");
       } finally {
         setLoading(false);
       }
     };
 
     fetchTest();
-  }, [id]);
+  }, [slug, navigate]);
 
-  // Обработка выбора ответа
+  const questions = test?.questions || [];
+
   const handleAnswerChange = (questionId, value) => {
     setAnswers((prev) => ({
       ...prev,
       [questionId]: value,
     }));
+
+    setTimeout(() => {
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion((prev) => prev + 1);
+      }
+    }, 400);
   };
 
-  // Подсчет результатов
-  const calculateScore = async () => {
-    if (!test) return;
-
-    // Проверка, что на все вопросы ответили
-    const questions = JSON.parse(test.questions);
-    if (Object.keys(answers).length < questions.length) {
-      setError("Please answer all questions");
+  const calculateScore = () => {
+    if (Object.keys(answers).length !== questions.length) {
+      toast.warning("Пожалуйста, ответьте на все вопросы");
       return;
     }
 
     setIsSubmitting(true);
-    setError(null);
 
     try {
-      // Здесь должна быть ваша логика подсчета баллов
-      // Для примера - простой подсчет
-      let score = 0;
-      questions.forEach((q, index) => {
-        if (answers[q.id] !== undefined) score += answers[q.id] + 1;
+      if (!test?.scoring_rules) {
+        throw new Error("Правила оценки не найдены");
+      }
+
+      let scoringData = test.scoring_rules;
+      if (typeof scoringData === "string") {
+        scoringData = JSON.parse(scoringData);
+      }
+
+      if (!scoringData?.scoring?.ranges) {
+        throw new Error("Некорректные правила оценки");
+      }
+
+      // Подсчет баллов: суммируем значения ответов
+      let total = 0;
+      Object.values(answers).forEach((answer) => {
+        total += answer; // Предполагается, что answer - это числовое значение
       });
-      score = Math.round((score / (questions.length * 4)) * 100);
 
-      // Отправка результатов на сервер
-      const response = await axios.post(
-        "http://localhost:8080/test-result",
-        {
-          test_id: test.id,
-          test_name: test.title,
-          score: score,
-          result_text: getResultText(score),
-          answers: answers,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      const finalScore = total;
 
-      setTotalScore(score);
+      const matchedRange = scoringData.scoring.ranges.find(
+        (range) => finalScore >= (range.min || 0) && finalScore <= range.max
+      ) || {};
+
+      setTotalScore(finalScore);
+      setResultData({
+        text: matchedRange.text || `Результат: ${finalScore}`,
+        description: matchedRange.description || "",
+      });
+
+      return saveTestResult(finalScore, matchedRange.text);
     } catch (err) {
-      console.error("Error saving results:", err);
-      setError("Failed to save test results");
+      console.error("Ошибка расчета:", err);
+      setResultData({
+        text: "Ошибка расчета",
+        description: err.message,
+      });
+      toast.error("Ошибка при расчете результата");
+      throw err;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getResultText = (score) => {
-    if (score <= 30) return "Низкий уровень тревожности";
-    if (score <= 70) return "Средний уровень тревожности";
-    return "Высокий уровень тревожности";
+  const saveTestResult = async (score, resultText) => {
+    try {
+      const payload = {
+        test_slug: slug, // Используем slug вместо test_id
+        test_name: test.title,
+        score: score || 0,
+        result_text: resultText || "Результат не определен",
+        answers: answers,
+      };
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Требуется авторизация");
+      }
+
+      await api.post("/test-result", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      toast.success("Результат сохранен!");
+    } catch (error) {
+      console.error("Ошибка сохранения:", error);
+      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      throw error;
+    }
   };
 
   if (loading) {
@@ -110,200 +157,84 @@ const AnxietyTest = ({ darkMode }) => {
           darkMode ? "bg-gray-900" : "bg-gray-100"
         }`}
       >
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div
+          className={`animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 ${
+            darkMode ? "border-blue-400" : "border-blue-500"
+          }`}
+        ></div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !test) {
     return (
       <div
         className={`flex flex-col justify-center items-center h-screen p-4 ${
           darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
         }`}
       >
-        <h2 className="text-2xl font-bold mb-4">Error</h2>
-        <p className="text-red-500 mb-6">{error}</p>
+        <h2 className="text-2xl font-bold mb-4">
+          {error ? "Ошибка" : "Тест не найден"}
+        </h2>
+        <p className={`mb-6 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+          {error || "Запрошенный тест не существует"}
+        </p>
         <button
           onClick={() => navigate("/tests")}
-          className={`px-4 py-2 rounded ${
-            darkMode
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-blue-500 hover:bg-blue-600"
+          className={`px-6 py-3 rounded-lg ${
+            darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
           } text-white`}
         >
-          Back to Tests
+          Вернуться к тестам
         </button>
       </div>
     );
   }
 
-  if (!test) {
-    return (
-      <div
-        className={`flex flex-col justify-center items-center h-screen ${
-          darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
-        }`}
-      >
-        <h2 className="text-2xl font-bold mb-4">Test not found</h2>
-        <button
-          onClick={() => navigate("/tests")}
-          className={`px-4 py-2 rounded ${
-            darkMode
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-blue-500 hover:bg-blue-600"
-          } text-white`}
-        >
-          Back to Tests
-        </button>
-      </div>
-    );
-  }
-
-  const questions = JSON.parse(test.questions);
+  const currentQuestionData = questions[currentQuestion];
 
   return (
-    <div
-      className={`container mx-auto p-4 min-h-screen ${
-        darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
-      }`}
-    >
-      <h1 className="text-3xl font-bold text-center mb-6">{test.title}</h1>
-
-      {totalScore !== null ? (
-        <div
-          className={`p-6 rounded-lg shadow-lg ${
-            darkMode ? "bg-gray-800" : "bg-white"
-          }`}
-        >
-          <h2 className="text-2xl font-bold">Результат:</h2>
-          <p className="text-xl mt-2">
-            Ваш результат: {totalScore}% - {getResultText(totalScore)}
-          </p>
-          <div className="mt-6">
-            <Link
-              to="/profile"
-              className={`px-4 py-2 rounded-lg ${
-                darkMode
-                  ? "bg-indigo-600 hover:bg-indigo-700"
-                  : "bg-indigo-600 hover:bg-indigo-700"
-              } text-white mr-4`}
-            >
-              Посмотреть в профиле
-            </Link>
-            <Link
-              to="/tests"
-              className={`px-4 py-2 rounded-lg ${
-                darkMode
-                  ? "bg-gray-600 hover:bg-gray-500"
-                  : "bg-gray-200 hover:bg-gray-300"
-              }`}
-            >
-              К списку тестов
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="relative pt-1 mb-4">
-            <div
-              className={`overflow-hidden h-4 mb-2 text-xs flex rounded ${
-                darkMode ? "bg-gray-700" : "bg-gray-300"
-              }`}
-            >
-              <div
-                style={{
-                  width: `${((currentQuestion + 1) / questions.length) * 100}%`,
-                }}
-                className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${
-                  darkMode ? "bg-blue-500" : "bg-blue-600"
-                }`}
-              ></div>
-            </div>
-            <p
-              className={`text-sm ${
-                darkMode ? "text-gray-400" : "text-gray-600"
-              }`}
-            >
-              Вопрос {currentQuestion + 1} из {questions.length}
-            </p>
-          </div>
-
+    <TestLayout
+      darkMode={darkMode}
+      title={test.title}
+      description={testDescription}
+      currentQuestion={currentQuestion}
+      totalQuestions={questions.length}
+      onPrev={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
+      onNext={() => {
+        if (answers[currentQuestionData.id] !== undefined) {
+          setCurrentQuestion((prev) => Math.min(questions.length - 1, prev + 1));
+        } else {
+          toast.warning("Пожалуйста, выберите ответ");
+        }
+      }}
+      onSubmit={calculateScore}
+      isSubmitting={isSubmitting}
+      canSubmit={Object.keys(answers).length === questions.length}
+      showResults={totalScore !== null}
+      results={
+        <div className="space-y-4">
           <div
-            className={`p-6 rounded-lg shadow-md ${
-              darkMode ? "bg-gray-800" : "bg-white"
+            className={`p-4 rounded-lg ${
+              darkMode ? "bg-gray-800" : "bg-blue-50"
             }`}
           >
-            <p className="font-semibold flex items-center text-lg">
-              <FaQuestionCircle
-                className={`mr-2 ${darkMode ? "text-blue-400" : "text-blue-600"}`}
-              />{" "}
-              {questions[currentQuestion].text}
-            </p>
-            {questions[currentQuestion].options.map((option, index) => (
-              <label key={index} className="block mt-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name={`question-${questions[currentQuestion].id}`}
-                  checked={
-                    answers[questions[currentQuestion].id] === index
-                  }
-                  onChange={() =>
-                    handleAnswerChange(questions[currentQuestion].id, index)
-                  }
-                  className="mr-2"
-                />
-                {option}
-              </label>
-            ))}
-          </div>
-
-          <div className="flex justify-between mt-4">
-            <button
-              onClick={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
-              disabled={currentQuestion === 0}
-              className={`px-4 py-2 rounded ${
-                darkMode
-                  ? "bg-gray-600 hover:bg-gray-500 disabled:opacity-50"
-                  : "bg-gray-300 hover:bg-gray-400 disabled:opacity-50"
-              }`}
-            >
-              Назад
-            </button>
-            {currentQuestion < questions.length - 1 ? (
-              <button
-                onClick={() =>
-                  setCurrentQuestion((prev) => Math.min(questions.length - 1, prev + 1))
-                }
-                className={`px-4 py-2 rounded ${
-                  darkMode ? "bg-blue-600 hover:bg-blue-500" : "bg-blue-600 hover:bg-blue-700"
-                } text-white`}
-              >
-                Далее
-              </button>
-            ) : (
-              <button
-                onClick={calculateScore}
-                disabled={isSubmitting}
-                className={`px-4 py-2 rounded ${
-                  darkMode
-                    ? "bg-green-600 hover:bg-green-500 disabled:opacity-50"
-                    : "bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                } text-white`}
-              >
-                {isSubmitting ? "Отправка..." : "Завершить тест"}
-              </button>
+            <p className="text-xl font-semibold mb-2">{resultData.text}</p>
+            {resultData.description && (
+              <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                {resultData.description}
+              </p>
             )}
           </div>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-100 text-red-700 rounded">
-              {error}
-            </div>
-          )}
-        </>
-      )}
-    </div>
+        </div>
+      }
+      onHome={() => navigate("/")}
+      currentQuestionData={currentQuestionData}
+      answers={answers}
+      handleAnswerChange={handleAnswerChange}
+      isLoading={loading}
+      error={error}
+    />
   );
 };
 

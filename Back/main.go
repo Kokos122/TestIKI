@@ -110,9 +110,8 @@ func main() {
 	router.POST("/register", handlers.Register)
 	router.POST("/login", limiterMiddleware, handlers.Login)
 	router.POST("/logout", handlers.Logout)
+	router.GET("/tests/:slug", handlers.GetTest)
 	router.GET("/tests", handlers.GetTests)
-	router.GET("/tests/:id", handlers.GetTest)
-
 	// Защищенные маршруты
 	authGroup := router.Group("/")
 	authGroup.Use(AuthMiddleware())
@@ -122,6 +121,8 @@ func main() {
 		authGroup.POST("/upload-avatar", handlers.UploadAvatar)
 		authGroup.POST("/update-avatar", handlers.UpdateAvatar)
 		authGroup.DELETE("/avatar", handlers.DeleteAvatar)
+		authGroup.GET("/user/test-results", handlers.GetUserTestResults)
+		authGroup.PATCH("/update-profile", handlers.UpdateProfile)
 	}
 
 	port := os.Getenv("PORT")
