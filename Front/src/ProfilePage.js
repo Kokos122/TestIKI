@@ -87,16 +87,14 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
       try {
         const token = localStorage.getItem('token');
         const response = await axios.get('http://localhost:8080/user/test-results', {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
         });
-        setTestResults(response.data.test_results || []);
+        setTestResults(response.data.test_results);
       } catch (error) {
         console.error('Error fetching test results:', error);
-        setError('Не удалось загрузить результаты тестов');
-        toast.error('Не удалось загрузить результаты тестов');
+        toast.error(error.response?.data?.error || 'Ошибка при загрузке результатов тестов');
       } finally {
         setIsLoadingResults(false);
       }

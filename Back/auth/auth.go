@@ -5,12 +5,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Claims struct {
 	Username string `json:"username"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 func GenerateToken(username string) (string, error) {
@@ -19,11 +19,10 @@ func GenerateToken(username string) (string, error) {
 		return "", errors.New("JWT_SECRET not configured")
 	}
 
-	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
 		Username: username,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			Issuer:    "testiki-app",
 		},
 	}
@@ -47,6 +46,9 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	})
 
 	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, errors.New("token expired")
+		}
 		return nil, err
 	}
 
