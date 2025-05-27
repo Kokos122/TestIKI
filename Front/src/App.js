@@ -189,6 +189,7 @@ const App = () => {
                   darkMode={darkMode} 
                   onAvatarUpdate={updateAvatar}
                   onLogout={handleLogout}
+                  onLoginSuccess={handleLoginSuccess}
                 /> : 
                 <Navigate to="/" />
             }

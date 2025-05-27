@@ -621,6 +621,8 @@ func GetUserTestResults(c *gin.Context) {
 }
 
 // UpdateProfile handles updating the user's profile
+// UpdateProfile handles updating the user's profile
+// UpdateProfile handles updating the user's profile
 func UpdateProfile(c *gin.Context) {
 	// Get userID from context (set by AuthMiddleware)
 	userID, exists := c.Get("userID")
@@ -643,9 +645,25 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	// Check if username is already taken by another user
+	if req.Username != "" && req.Username != user.Username {
+		var existingUser database.User
+		if err := database.DB.Where("username = ? AND id != ?", req.Username, userID).First(&existingUser).Error; err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "Username already taken"})
+			return
+		}
+	}
+
+	// Store old username for comparison
+	oldUsername := user.Username
+
 	// Update user fields
-	user.Username = req.Username
-	user.Email = req.Email
+	if req.Username != "" {
+		user.Username = req.Username
+	}
+	if req.Email != "" {
+		user.Email = req.Email
+	}
 
 	// Save changes to the database
 	if err := database.DB.Save(&user).Error; err != nil {
@@ -653,10 +671,24 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	// Generate new token if username changed
+	newToken := ""
+	if req.Username != "" && req.Username != oldUsername {
+		var err error
+		newToken, err = auth.GenerateToken(user.Username) // Pass username string
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new token"})
+			return
+		}
+		// Set new token in cookie
+		c.SetCookie("token", newToken, 24*3600, "/", "localhost", false, true)
+	}
+
 	// Return updated user data
 	c.JSON(http.StatusOK, gin.H{
 		"username":   user.Username,
 		"email":      user.Email,
 		"created_at": user.CreatedAt.Format(time.RFC3339),
+		"token":      newToken, // Empty string if token wasn't regenerated
 	})
 }
