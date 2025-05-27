@@ -47,8 +47,10 @@ func Connect() {
 }
 
 func AutoMigrate() {
-	err := DB.AutoMigrate(&User{})
+	// Мигрируем все модели
+	err := DB.AutoMigrate(&User{}, &Test{}, &TestResult{})
 	if err != nil {
 		log.Fatal("Migration failed:", err)
 	}
+	fmt.Println("✅ Database migration completed")
 }

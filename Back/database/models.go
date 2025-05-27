@@ -11,14 +11,19 @@ import (
 
 type User struct {
 	gorm.Model
-	Username      string       `json:"username" gorm:"unique;not null"`
-	Password      string       `json:"-" gorm:"not null"`
-	Email         string       `json:"email" gorm:"unique;not null"`
-	IsVerified    bool         `json:"is_verified" gorm:"default:false"`
-	VerifyToken   string       `json:"-"`
+	Username    string `json:"username" gorm:"unique;not null"`
+	Password    string `json:"-" gorm:"not null"`
+	Email       string `json:"email" gorm:"unique;not null"`
+	IsVerified  bool   `json:"is_verified" gorm:"default:false"`
+	VerifyToken string `json:"-"`
+
+	// НОВЫЕ поля для восстановления пароля
+	ResetToken    *string    `json:"-" gorm:"column:reset_token"`
+	ResetTokenExp *time.Time `json:"-" gorm:"column:reset_token_exp"`
+
 	AvatarURL     string       `json:"avatar_url" gorm:"default:'/images/default-avatar.png'"`
-	LoginAttempts int          `json:"login_attempts" gorm:"default:0"` // Добавлено для учёта попыток
-	LockUntil     *time.Time   `json:"lock_until"`                      // Добавлено для блокировки
+	LoginAttempts int          `json:"login_attempts" gorm:"default:0"`
+	LockUntil     *time.Time   `json:"lock_until"`
 	TestResults   []TestResult `json:"test_results" gorm:"foreignKey:UserID"`
 }
 

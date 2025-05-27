@@ -50,122 +50,150 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
 
 
  const handleAuth = async (e) => {
-      e.preventDefault();
-      if (isLoading) return;
-      setIsLoading(true);
-      setError("");
+    e.preventDefault();
+    if (isLoading) return;
+    setIsLoading(true);
+    setError("");
 
-      if (!username || !password) {
-          setError("Все поля обязательны!");
-          setIsLoading(false);
-          return;
-      }
+    if (!username || !password) {
+        setError("Все поля обязательны!");
+        setIsLoading(false);
+        return;
+    }
 
-      if (isRegister) {
-          // ... (остальной код без изменений)
-      }
+    // ВАЛИДАЦИЯ ДЛЯ РЕГИСТРАЦИИ (перенесите сюда)
+    if (isRegister) {
+        if (!email) {
+            setError("Email обязателен!");
+            setIsLoading(false);
+            return;
+        }
+        if (!isValidEmail(email)) {
+            setError("Неверный формат email!");
+            setIsLoading(false);
+            return;
+        }
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+            setError(passwordError);
+            setIsLoading(false);
+            return;
+        }
+        if (password !== confirmPassword) {
+            setError("Пароли не совпадают!");
+            setIsLoading(false);
+            return;
+        }
+    }
 
-      if (showCaptcha && !captchaToken) {
-          setError("Пройдите проверку CAPTCHA!");
-          setIsLoading(false);
-          return;
-      }
+    if (showCaptcha && !captchaToken) {
+        setError("Пройдите проверку CAPTCHA!");
+        setIsLoading(false);
+        return;
+    }
 
-      const url = isRegister ? "/register" : "/login";
-      const data = isRegister
-          ? {
-                username: username,
-                email: email,
-                password: password,
-                confirmPassword: confirmPassword,
+    const url = isRegister ? "/register" : "/login";
+    const data = isRegister
+        ? {
+            username: username,
+            email: email,
+            password: password,
+            confirmPassword: confirmPassword,
+        }
+        : {
+            identifier: username,
+            password: password,
+            captcha_token: captchaToken,
+        };
+
+    try {
+        const response = await api.post(url, data);
+
+        if (isRegister) {
+            // ТОЛЬКО показываем сообщение, НЕ входим автоматически
+            alert("Регистрация успешна! Проверьте email для подтверждения аккаунта.");
+            setIsRegister(false); // Переключаем на форму входа
+            setUsername("");
+            setEmail("");
+            setPassword("");
+            setConfirmPassword("");
+            setAttempts(0);
+            setShowCaptcha(false);
+            setCaptchaToken(null);
+            if (recaptchaRef.current) {
+                recaptchaRef.current.reset();
             }
-          : {
-                identifier: username,
-                password: password,
-                captcha_token: captchaToken,
-            };
-
-      try {
-          const start = Date.now();
-          const response = await api.post(url, data);
-          const duration = (Date.now() - start) / 1000;
-
-          if (isRegister) {
-              // Автоматический вход после регистрации
-              const loginData = {
-                  identifier: username,
-                  password,
-                  captcha_token: captchaToken,
-              };
-              const loginResponse = await api.post("/login", loginData);
-
-              // Удаляем сохранение в localStorage, так как сервер устанавливает куки
-              // localStorage.setItem("token", loginResponse.data.token); // Удалить эту строку
-              onLoginSuccess(loginResponse.data.user);
-              setAttempts(0);
-              setShowCaptcha(false);
-              setCaptchaToken(null);
-              if (recaptchaRef.current) {
-                  recaptchaRef.current.reset();
-              }
-              setUsername("");
-              setEmail("");
-              setPassword("");
-              setConfirmPassword("");
-          } else {
-              // Удаляем сохранение в localStorage
-              // localStorage.setItem("token", response.data.token); // Удалить эту строку
-              onLoginSuccess(response.data.user);
-              setAttempts(0);
-              setShowCaptcha(false);
-              setCaptchaToken(null);
-              if (recaptchaRef.current) {
-                  recaptchaRef.current.reset();
-              }
-              setUsername("");
-              setPassword("");
-          }
-      } catch (error) {
-          console.error("Ошибка:", error.response?.data);
-          setAttempts((prev) => prev + 1);
-          if (error.response?.data?.captcha_required) {
-              setShowCaptcha(true);
-              if (recaptchaRef.current) {
-                  recaptchaRef.current.reset();
-              }
-              setCaptchaToken(null);
-          }
-          let serverError = error.response?.data?.error || "Ошибка авторизации/регистрации";
-          if (error.response?.status === 429) {
-              serverError = error.response?.data?.error || "Слишком много попыток входа. Подождите минуту и попробуйте снова.";
-          }
-          setError(serverError);
-      } finally {
-          setIsLoading(false);
-      }
-  };
+        } else {
+            // ВХОД - проверяем подтвержден ли email
+            if (response.data.user && response.data.user.is_verified === false) {
+                setError("Пожалуйста, подтвердите ваш email адрес перед входом в систему");
+                setIsLoading(false);
+                return;
+            }
+            
+            onLoginSuccess(response.data.user);
+            setAttempts(0);
+            setShowCaptcha(false);
+            setCaptchaToken(null);
+            if (recaptchaRef.current) {
+                recaptchaRef.current.reset();
+            }
+            setUsername("");
+            setPassword("");
+        }
+    } catch (error) {
+        console.error("Ошибка:", error.response?.data);
+        setAttempts((prev) => prev + 1);
+        
+        if (error.response?.data?.error === "EMAIL_NOT_VERIFIED") {
+            setError("Пожалуйста, подтвердите ваш email адрес перед входом в систему");
+            setIsLoading(false);
+            return;
+        }
+        
+        if (error.response?.data?.captcha_required) {
+            setShowCaptcha(true);
+            if (recaptchaRef.current) {
+                recaptchaRef.current.reset();
+            }
+            setCaptchaToken(null);
+        }
+        
+        let serverError = error.response?.data?.error || "Ошибка авторизации/регистрации";
+        if (error.response?.status === 429) {
+            serverError = error.response?.data?.error || "Слишком много попыток входа. Подождите минуту и попробуйте снова.";
+        }
+        setError(serverError);
+    } finally {
+        setIsLoading(false);
+    }
+};
 
   const handlePasswordReset = async () => {
-    if (!email) {
-      setError("Введите email!");
-      return;
-    }
-    if (!isValidEmail(email)) {
-      setError("Неверный формат email!");
-      return;
-    }
+  if (!email) {
+    setError("Введите email!");
+    return;
+  }
+  if (!isValidEmail(email)) {
+    setError("Неверный формат email!");
+    return;
+  }
 
-    setError("");
-    try {
-      const response = await api.post("/reset-password", { email });
-      alert(response.data.message);
-      setIsForgotPassword(false);
-      setEmail("");
-    } catch (error) {
-      setError(error.response?.data?.error || "Ошибка восстановления пароля");
-    }
-  };
-
+  setError("");
+  setIsLoading(true); // Добавьте состояние загрузки
+  
+  try {
+    // Изменить эндпоинт с "/reset-password" на "/auth/forgot-password"
+    const response = await api.post("/auth/forgot-password", { email });
+    alert("Письмо с инструкциями отправлено на ваш email!");
+    setIsForgotPassword(false);
+    setEmail("");
+  } catch (error) {
+    setError(error.response?.data?.error || "Ошибка восстановления пароля");
+  } finally {
+    setIsLoading(false);
+  }
+};
   const onCaptchaChange = (token) => {
       if (token) {
           setCaptchaToken(token);

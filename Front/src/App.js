@@ -23,6 +23,8 @@ import WalkingDeadTest from "./components/WalkingDeadTest.js";
 import SmesharikiTest from "./components/SmesharikiTest.js";
 import WursTest from "./components/WursTest.js";
 import BeckHopelessnessTest from "./components/BeckHopelessnessTest.js";
+import ResetPasswordPage from "./ResetPasswordPage.js"; //новый файл для сброса пароля
+import EmailVerificationPage from "./EmailVerificationPage.js"; // новый файл для подтверждения пароля
 
 const AppWrapper = () => (
   <Router>
@@ -44,6 +46,9 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  //добавлено для сброса пароля
+  const publicRoutes = ['/reset-password', '/verify-email'];
+  const isPublicRoute = publicRoutes.includes(location.pathname);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -57,7 +62,8 @@ const App = () => {
   api.interceptors.response.use(
     response => response,
     error => {
-      if (error.response?.status === 401) {
+      // НЕ вызываем handleLogout на публичных страницах
+      if (error.response?.status === 401 && !isPublicRoute) {
         handleLogout();
       }
       return Promise.reject(error);
@@ -84,11 +90,17 @@ const App = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Пропускаем проверку аутентификации на публичных страницах
+      if (isPublicRoute) {
+        setIsLoading(false);
+        return;
+      }
+      
       await verifyAuth();
       setIsLoading(false);
     };
     checkAuth();
-  }, []);
+  }, [isPublicRoute]);
 
   const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
   const toggleAuthModal = () => setIsAuthModalOpen(prev => !prev);
@@ -180,6 +192,9 @@ const App = () => {
         <Routes>
           <Route path="/" element={<HomePage darkMode={darkMode} />} />
           <Route path="/about" element={<About_Us darkMode={darkMode} />} />
+          <Route path="/reset-password" element={<ResetPasswordPage darkMode={darkMode} />} />
+          <Route path="/verify-email" element={<EmailVerificationPage darkMode={darkMode} />} />
+
           <Route
             path="/profile"
             element={

@@ -121,6 +121,12 @@ func main() {
 	router.POST("/register", handlers.Register)
 	router.POST("/login", limiterMiddleware, handlers.Login)
 	router.POST("/logout", handlers.Logout)
+	// НОВЫЕ маршруты для восстановления пароля и верификации email
+	router.POST("/auth/forgot-password", handlers.ForgotPassword)
+	router.POST("/auth/reset-password", handlers.ResetPassword)
+	router.POST("/auth/verify-email", handlers.VerifyEmail)
+	router.POST("/auth/resend-verification", handlers.ResendVerification)
+
 	router.GET("/tests/:slug", handlers.GetTest)
 	router.GET("/tests", handlers.GetTests)
 	// Защищенные маршруты

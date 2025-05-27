@@ -8,6 +8,7 @@ import (
 	"myproject/auth"
 	"myproject/cloudinary"
 	"myproject/database"
+	"myproject/services"
 	"net/http"
 	"net/url"
 	"os"
@@ -42,6 +43,21 @@ type TestResultRequest struct {
 type UpdateProfileRequest struct {
 	Username string `json:"username" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
+}
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+type ResetPasswordRequest struct {
+	Token    string `json:"token" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type VerifyEmailRequest struct {
+	Token string `json:"token" binding:"required"`
+}
+
+type ResendVerificationRequest struct {
+	Email string `json:"email" binding:"required,email"`
 }
 
 func validatePassword(password string) error {
@@ -155,10 +171,20 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Генерируем токен для верификации email
+	verifyToken, err := services.GenerateRandomToken()
+	if err != nil {
+		log.Printf("Ошибка генерации токена: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сервера"})
+		return
+	}
+
 	user := database.User{
 		Username:      req.Username,
 		Password:      req.Password,
 		Email:         req.Email,
+		IsVerified:    false,       // По умолчанию не подтвержден
+		VerifyToken:   verifyToken, // Устанавливаем токен
 		LoginAttempts: 0,
 		LockUntil:     nil,
 	}
@@ -178,7 +204,18 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
+	// Отправляем письмо подтверждения
+	emailService := services.NewEmailService()
+	if err := emailService.SendVerificationEmail(user.Email, verifyToken); err != nil {
+		log.Printf("Ошибка отправки email верификации: %v", err)
+		// Не возвращаем ошибку пользователю, так как аккаунт уже создан
+	}
+
+	log.Printf("Пользователь %s зарегистрирован, письмо подтверждения отправлено", user.Username)
+	c.JSON(http.StatusCreated, gin.H{
+		"message":    "Пользователь зарегистрирован. Проверьте email для подтверждения аккаунта",
+		"email_sent": true,
+	})
 }
 
 func Login(c *gin.Context) {
@@ -214,7 +251,7 @@ func Login(c *gin.Context) {
 			log.Printf("Требуется токен CAPTCHA для %s", req.Identifier)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":            "Требуется проверка CAPTCHA",
-				"captcha_required": true, // Явно указываем, что нужна капча
+				"captcha_required": true,
 			})
 			return
 		}
@@ -224,7 +261,6 @@ func Login(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверная CAPTCHA"})
 			return
 		}
-		// Сбрасываем попытки и блокировку после успешной капчи
 		user.LoginAttempts = 0
 		user.LockUntil = nil
 		if err := database.DB.Save(&user).Error; err != nil {
@@ -247,8 +283,15 @@ func Login(c *gin.Context) {
 		}
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error":            "Неверный логин или пароль",
-			"captcha_required": user.LoginAttempts >= 3, // Указываем, нужна ли капча
+			"captcha_required": user.LoginAttempts >= 3,
 		})
+		return
+	}
+
+	// НОВАЯ ПРОВЕРКА: email должен быть подтвержден
+	if !user.IsVerified {
+		log.Printf("Попытка входа с неподтвержденным email: %s", user.Email)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "EMAIL_NOT_VERIFIED"})
 		return
 	}
 
@@ -275,10 +318,11 @@ func Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
-			"id":         user.ID,
-			"username":   user.Username,
-			"email":      user.Email,
-			"avatar_url": user.AvatarURL,
+			"id":          user.ID,
+			"username":    user.Username,
+			"email":       user.Email,
+			"avatar_url":  user.AvatarURL,
+			"is_verified": user.IsVerified, // Добавьте это поле
 		},
 		"token": token,
 	})
@@ -302,6 +346,187 @@ func GetCurrentUser(c *gin.Context) {
 		"avatar_url": user.AvatarURL,
 		"created_at": user.CreatedAt.Format(time.RFC3339),
 	})
+}
+
+// 1. Запрос восстановления пароля
+func ForgotPassword(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат запроса"})
+		return
+	}
+
+	// Ищем пользователя по email
+	var user database.User
+	if err := database.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		// Не говорим, что пользователь не найден (безопасность)
+		c.JSON(http.StatusOK, gin.H{"message": "Если email существует, письмо будет отправлено"})
+		return
+	}
+
+	// Генерируем токен для сброса пароля
+	resetToken, err := services.GenerateRandomToken()
+	if err != nil {
+		log.Printf("Ошибка генерации токена: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сервера"})
+		return
+	}
+
+	// Устанавливаем токен и время истечения (1 час)
+	resetTokenExp := services.CreateTokenExpiration()
+	user.ResetToken = &resetToken
+	user.ResetTokenExp = &resetTokenExp
+
+	if err := database.DB.Save(&user).Error; err != nil {
+		log.Printf("Ошибка сохранения токена: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сервера"})
+		return
+	}
+
+	// Отправляем email
+	emailService := services.NewEmailService()
+	if err := emailService.SendPasswordResetEmail(user.Email, resetToken); err != nil {
+		log.Printf("Ошибка отправки email: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка отправки email"})
+		return
+	}
+
+	log.Printf("Письмо для сброса пароля отправлено на %s", user.Email)
+	c.JSON(http.StatusOK, gin.H{"message": "Письмо с инструкциями отправлено на ваш email"})
+}
+
+// 2. Сброс пароля
+func ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат запроса"})
+		return
+	}
+
+	// Валидация пароля
+	if err := validatePassword(req.Password); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Ищем пользователя по токену
+	var user database.User
+	if err := database.DB.Where("reset_token = ?", req.Token).First(&user).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Недействительный токен"})
+		return
+	}
+
+	// Проверяем срок действия токена
+	if services.IsTokenExpired(user.ResetTokenExp) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Токен истек"})
+		return
+	}
+
+	// Хешируем новый пароль
+	user.Password = req.Password
+	if err := user.HashPassword(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка обработки пароля"})
+		return
+	}
+
+	// Очищаем токен сброса и сохраняем
+	user.ResetToken = nil
+	user.ResetTokenExp = nil
+	user.LoginAttempts = 0 // Сбрасываем попытки входа
+	user.LockUntil = nil   // Снимаем блокировку
+
+	if err := database.DB.Save(&user).Error; err != nil {
+		log.Printf("Ошибка сохранения нового пароля: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сервера"})
+		return
+	}
+
+	log.Printf("Пароль успешно изменен для пользователя %s", user.Username)
+	c.JSON(http.StatusOK, gin.H{"message": "Пароль успешно изменен"})
+}
+
+// 3. Подтверждение email
+func VerifyEmail(c *gin.Context) {
+	var req VerifyEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат запроса"})
+		return
+	}
+
+	// Ищем пользователя по токену верификации
+	var user database.User
+	if err := database.DB.Where("verify_token = ?", req.Token).First(&user).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Недействительный токен верификации"})
+		return
+	}
+
+	// Проверяем, не подтвержден ли уже email
+	if user.IsVerified {
+		c.JSON(http.StatusOK, gin.H{"message": "Email уже подтвержден"})
+		return
+	}
+
+	// Подтверждаем email и очищаем токен
+	user.IsVerified = true
+	user.VerifyToken = ""
+
+	if err := database.DB.Save(&user).Error; err != nil {
+		log.Printf("Ошибка подтверждения email: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сервера"})
+		return
+	}
+
+	log.Printf("Email подтвержден для пользователя %s", user.Username)
+	c.JSON(http.StatusOK, gin.H{"message": "Email успешно подтвержден"})
+}
+
+// 4. Повторная отправка письма подтверждения
+func ResendVerification(c *gin.Context) {
+	var req ResendVerificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат запроса"})
+		return
+	}
+
+	// Ищем пользователя по email
+	var user database.User
+	if err := database.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Пользователь не найден"})
+		return
+	}
+
+	// Проверяем, не подтвержден ли уже email
+	if user.IsVerified {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email уже подтвержден"})
+		return
+	}
+
+	// Генерируем новый токен верификации
+	verifyToken, err := services.GenerateRandomToken()
+	if err != nil {
+		log.Printf("Ошибка генерации токена: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сервера"})
+		return
+	}
+
+	// Сохраняем новый токен
+	user.VerifyToken = verifyToken
+	if err := database.DB.Save(&user).Error; err != nil {
+		log.Printf("Ошибка сохранения токена: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сервера"})
+		return
+	}
+
+	// Отправляем email
+	emailService := services.NewEmailService()
+	if err := emailService.SendVerificationEmail(user.Email, verifyToken); err != nil {
+		log.Printf("Ошибка отправки email: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка отправки email"})
+		return
+	}
+
+	log.Printf("Письмо подтверждения повторно отправлено на %s", user.Email)
+	c.JSON(http.StatusOK, gin.H{"message": "Письмо подтверждения отправлено повторно"})
 }
 
 func UploadAvatar(c *gin.Context) {
