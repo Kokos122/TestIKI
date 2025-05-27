@@ -4,16 +4,16 @@ import { motion } from "framer-motion";
 
 const HomePage = ({ darkMode }) => {
   const testItems = [
-    { img: "/images/test9.png", title: "Кто ты из Ходячих мертвецов?", link: "/walking-dead-test" },
-    { img: "/images/test1.png", title: "Кто ты из Смешариков?", link: "/smeshariki-test" },
-    { img: "/images/test2.png", title: "Тест на тревожность", link: "/anxiety-test" },
-    { img: "/images/test3.png", title: "Тест на влюбленность", link: "/love-test" },
-    { img: "/images/test4.png", title: "Тест на проф.ориентацию", link: "/career-test" },
-    { img: "/images/test5.png", title: "Тест на логику", link: "/logic-test" },
-    { img: "/images/test6.png", title: "Тест на креативность", link: "/creativity-test" },
-    { img: "/images/test7.png", title: "Тест на знание флагов", link: "/flags-test" },
-    { img: "/images/test8.png", title: "Кто ты из Дюны?", link: "/dune-test" },
-    { img: "/images/test10.png", title: "Тест на память", link: "/memory-test" },
+    { img: "/images/Test9.png", title: "Кто ты из Ходячих мертвецов?", link: "/walking-dead-test" },
+    { img: "/images/Test1.png", title: "Кто ты из Смешариков?", link: "/smeshariki-test" },
+    { img: "/images/Test2.png", title: "Тест на тревожность", link: "/anxiety-test" },
+    { img: "/images/Test3.png", title: "Тест на влюбленность", link: "/love-test" },
+    { img: "/images/Test4.png", title: "Тест на проф.ориентацию", link: "/career-test" },
+    { img: "/images/Test5.png", title: "Тест на логику", link: "/logic-test" },
+    { img: "/images/Test6.png", title: "Тест на креативность", link: "/creativity-test" },
+    { img: "/images/Test7.png", title: "Тест на знание флагов", link: "/flags-test" },
+    { img: "/images/Test8.png", title: "Кто ты из Дюны?", link: "/dune-test" },
+    { img: "/images/Test10.png", title: "Тест на память", link: "/memory-test" },
   ];
 
   // Анимационные параметры
