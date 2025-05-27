@@ -32,7 +32,7 @@ import axios from 'axios';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
-const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
+const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, onLoginSuccess }) => {
   const [testResults, setTestResults] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState(user?.username || '');
@@ -48,11 +48,13 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
+  const [usernameError, setUsernameError] = useState('');
   const navigate = useNavigate();
   const [achievementPage, setAchievementPage] = useState(0);
   const [prevPage, setPrevPage] = useState(0);
   const achievementsPerPage = 4;
   const [isGraphReady, setIsGraphReady] = useState(false);
+  
   
   const defaultAvatar = 'https://res.cloudinary.com/dbynlpzwa/image/upload/t_default/v1747240081/default_n0gsmv.png';
 
@@ -85,22 +87,17 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
     const fetchTestResults = async () => {
       setIsLoadingResults(true);
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8080/user/test-results', {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        setTestResults(response.data.test_results || []);
+          const response = await axios.get('http://localhost:8080/user/test-results', {
+              withCredentials: true, // Куки отправляются автоматически
+          });
+          setTestResults(response.data.test_results || []);
       } catch (error) {
-        console.error('Error fetching test results:', error);
-        setError('Не удалось загрузить результаты тестов');
-        toast.error('Не удалось загрузить результаты тестов');
+          console.error('Error fetching test results:', error);
+          toast.error(error.response?.data?.error || 'Ошибка при загрузке результатов тестов');
       } finally {
-        setIsLoadingResults(false);
+          setIsLoadingResults(false);
       }
-    };
+  };
     
     if (user) {
       fetchTestResults();
@@ -114,6 +111,8 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
     }, 0); // Задержка 300 мс для синхронизации с Framer Motion
     return () => clearTimeout(timer);
   }, []);
+
+  
 
   // Подготовка данных для графиков
   const averageScore = testResults.length > 0 
@@ -263,8 +262,8 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.delete('http://localhost:8080/avatar', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+            withCredentials: true // Use cookies for authentication
+        });
       onAvatarUpdate(response.data.avatar_url || defaultAvatar);
       toast.success('Аватар сброшен на стандартный');
     } catch (error) {
@@ -274,79 +273,84 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
   };
 
   const handleAvatarChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+      const file = e.target.files[0];
+      if (!file) return;
 
-    if (!file.type.match('image.*')) {
-      setError('Пожалуйста, выберите изображение (JPEG, PNG)');
-      return;
-    }
+      if (!file.type.match('image.*')) {
+          setError('Пожалуйста, выберите изображение (JPEG, PNG)');
+          return;
+      }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Файл слишком большой (максимум 5MB)');
-      return;
-    }
+      if (file.size > 5 * 1024 * 1024) {
+          setError('Файл слишком большой (максимум 5MB)');
+          return;
+      }
 
-    setError(null);
-    setIsLoading(true);
-    
-    const formData = new FormData();
-    formData.append('avatar', file);
+      setError(null);
+      setIsLoading(true);
+      
+      const formData = new FormData();
+      formData.append('avatar', file);
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        'http://localhost:8080/upload-avatar',
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setUploadProgress(percentCompleted);
-          },
-        }
-      );
-
-      onAvatarUpdate(response.data.avatar_url);
-      toast.success('Аватар успешно обновлен!');
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      setError('Ошибка при загрузке аватарки');
-      toast.error('Ошибка при загрузке аватарки');
-    } finally {
-      setIsLoading(false);
-      setUploadProgress(0);
-    }
+      try {
+          const response = await axios.post(
+              'http://localhost:8080/upload-avatar',
+              formData,
+              {
+                  withCredentials: true, // Use cookies for authentication
+                  headers: {
+                      'Content-Type': 'multipart/form-data',
+                  },
+                  onUploadProgress: (progressEvent) => {
+                      const percentCompleted = Math.round(
+                          (progressEvent.loaded * 100) / progressEvent.total
+                      );
+                      setUploadProgress(percentCompleted);
+                  },
+              }
+          );
+          onAvatarUpdate(response.data.avatar_url);
+          toast.success('Аватар успешно обновлен!');
+      } catch (error) {
+          console.error('Error uploading avatar:', error);
+          setError(error.response?.data?.error || 'Ошибка при загрузке аватарки');
+          toast.error(error.response?.data?.error || 'Ошибка при загрузке аватарки');
+      } finally {
+          setIsLoading(false);
+          setUploadProgress(0);
+      }
   };
 
-  const handleSaveProfile = async () => {
+const handleSaveProfile = async () => {
     setIsLoading(true);
+    setUsernameError('');
     try {
-      const token = localStorage.getItem('token');
-      await axios.patch('http://localhost:8080/update-profile', {
-        username,
-        email
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      toast.success('Профиль успешно обновлен!');
-      setIsEditing(false);
+        const response = await axios.patch('http://localhost:8080/update-profile', {
+            username,
+            email
+        }, {
+            withCredentials: true
+        });
+        toast.success('Профиль успешно обновлен!');
+        setIsEditing(false);
+        setUsername(response.data.username);
+        setEmail(response.data.email);
+        // Токен уже установлен сервером в куки, ничего делать не нужно
     } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error(error.response?.data?.error || 'Ошибка при обновлении профиля');
+        console.error('Error updating profile:', error);
+        console.log('Error response:', error.response);
+        const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Ошибка при обновлении профиля';
+        if (error.response?.status === 409 || errorMessage.toLowerCase().includes('username') && errorMessage.toLowerCase().includes('taken')) {
+            setUsernameError('Это имя пользователя уже занято. Пожалуйста, выберите другое.');
+            toast.error('Это имя пользователя уже занято. Пожалуйста, выберите другое.');
+            setIsEditing(true);
+        } else {
+            toast.error(errorMessage);
+        }
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  };
-
-
+};
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
@@ -463,102 +467,112 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
             </motion.div>
 
             {/* Информация о пользователе */}
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className={`p-6 rounded-2xl shadow-xl ${
-                darkMode 
-                  ? "bg-gray-800/80 backdrop-blur-sm border border-gray-700" 
-                  : "bg-white border border-gray-200"
-              }`}
-            >
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${
-                      darkMode ? "text-gray-300" : "text-gray-700"
-                    }`}>
-                      Имя пользователя
-                    </label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className={`w-full px-4 py-2 rounded-lg ${
-                        darkMode 
-                          ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" 
-                          : "bg-white border-gray-300 text-gray-800 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
-                      } border focus:outline-none focus:ring-2`}
-                      disabled={isLoading}
-                    />
+             <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className={`p-6 rounded-2xl shadow-xl ${
+                  darkMode 
+                    ? "bg-gray-800/80 backdrop-blur-sm border border-gray-700" 
+                    : "bg-white border border-gray-200"
+                }`}
+              >
+                {isEditing ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${
+                        darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}>
+                        Имя пользователя
+                      </label>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => {
+                          setUsername(e.target.value);
+                          setUsernameError(''); // Сбрасываем ошибку при изменении
+                        }}
+                        className={`w-full px-4 py-2 rounded-lg ${
+                          darkMode 
+                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" 
+                            : "bg-white border-gray-300 text-gray-800 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
+                        } border focus:outline-none focus:ring-2 ${usernameError ? 'border-red-500' : ''}`}
+                        disabled={isLoading}
+                      />
+                      {usernameError && (
+                        <p className="text-red-500 text-sm mt-1">{usernameError}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${
+                        darkMode ? "text-gray-300" : "text-gray-700"
+                      }`}>
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={`w-full px-4 py-2 rounded-lg ${
+                          darkMode 
+                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" 
+                            : "bg-white border-gray-300 text-gray-800 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
+                        } border focus:outline-none focus:ring-2`}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="flex space-x-3 pt-2">
+                      <button
+                          onClick={handleSaveProfile}
+                          disabled={isLoading}
+                          className={`flex-1 px-4 py-2 rounded-lg transition flex items-center justify-center ${
+                              darkMode 
+                                  ? "bg-indigo-600 hover:bg-indigo-700 text-white" 
+                                  : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                          } disabled:opacity-50`}
+                      >
+                          {isLoading ? (
+                              <>
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                  </svg>
+                                  Сохранение...
+                              </>
+                          ) : 'Сохранить'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsEditing(false);
+                          setUsernameError(''); // Сбрасываем ошибку при отмене
+                        }}
+                        disabled={isLoading}
+                        className={`flex-1 px-4 py-2 rounded-lg transition ${
+                          darkMode 
+                            ? "bg-gray-600 hover:bg-gray-500 text-white" 
+                            : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                        } disabled:opacity-50`}
+                      >
+                        Отмена
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${
-                      darkMode ? "text-gray-300" : "text-gray-700"
-                    }`}>
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className={`w-full px-4 py-2 rounded-lg ${
-                        darkMode 
-                          ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" 
-                          : "bg-white border-gray-300 text-gray-800 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
-                      } border focus:outline-none focus:ring-2`}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <div className="flex space-x-3 pt-2">
-                    <button
-                      onClick={handleSaveProfile}
-                      disabled={isLoading}
-                      className={`flex-1 px-4 py-2 rounded-lg transition flex items-center justify-center ${
-                        darkMode 
-                          ? "bg-indigo-600 hover:bg-indigo-700 text-white" 
-                          : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                      } disabled:opacity-50`}
-                    >
-                      {isLoading ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Сохранение...
-                        </>
-                      ) : 'Сохранить'}
-                    </button>
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      disabled={isLoading}
-                      className={`flex-1 px-4 py-2 rounded-lg transition ${
-                        darkMode 
-                          ? "bg-gray-600 hover:bg-gray-500 text-white" 
-                          : "bg-gray-200 hover:bg-gray-300 text-gray-800"
-                      } disabled:opacity-50`}
-                    >
-                      Отмена
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
+                ) : (
+                 <div className="space-y-4">
                   <div>
                     <h2 className="text-2xl font-bold">{user.username}</h2>
                     <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mt-1`}>{user.email}</p>
-                    <p className={`text-sm mt-2 ${
-                      darkMode ? "text-gray-500" : "text-gray-400"
-                    }`}>
+                    <p className={`text-sm mt-2 ${darkMode ? "text-gray-500" : "text-gray-400"}`}>
                       Зарегистрирован: {new Date(user.createdAt).toLocaleDateString('ru-RU')}
                     </p>
                   </div>
                   <div className="flex flex-col space-y-3">
                     <button
-                      onClick={() => setIsEditing(true)}
-                      className={`flex items-center justify-center px-4 py-2 rounded-lg transition ${
+                      onClick={() => {
+                        setIsEditing(true);
+                        setUsernameError('');
+                      }}
+                      className={`flex-1 px-4 py-2 rounded-lg transition flex items-center justify-center ${
                         darkMode 
                           ? "bg-indigo-600 hover:bg-indigo-700 text-white" 
                           : "bg-indigo-600 hover:bg-indigo-700 text-white"
@@ -569,10 +583,9 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                     </button>
                     <button
                       onClick={handleLogoutClick}
-                      className={`flex items-center justify-center px-4 py-2 rounded-lg transition ${
+                      className={`flex-1 px-4 py-2 rounded-lg transition flex items-center justify-center ${
                         darkMode 
-                          ? "bg-red-600 hover:bg-red-700 text-white" 
-                          : "bg-red-600 hover:bg-red-700 text-white"
+                          ? "bg-red-600 hover:bg-red-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"
                       }`}
                     >
                       <FaSignOutAlt className="mr-2" />
@@ -691,21 +704,21 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
 
               {/* Индикаторы страниц */}
               <div className="flex justify-center mt-4 space-x-2">
-                {Array.from({ length: Math.ceil(achievements.length / achievementsPerPage) }).map((_, i) => (
+               {Array.from({ length: Math.ceil(achievements.length / achievementsPerPage) }).map((_, i) => (
                   <button
-                    key={i}
-                    onClick={() => {
-                      setPrevPage(achievementPage);
-                      setAchievementPage(i);
-                    }}
-                    className={`w-2 h-2 rounded-full ${
-                      i === achievementPage 
-                        ? darkMode ? 'bg-yellow-400' : 'bg-yellow-500'
-                        : darkMode ? 'bg-gray-600' : 'bg-gray-300'
-                    }`}
-                    aria-label={`Перейти к странице ${i + 1}`}
+                      key={`page-${i}`} // Уникальный ключ
+                      onClick={() => {
+                          setPrevPage(achievementPage);
+                          setAchievementPage(i);
+                      }}
+                      className={`w-2 h-2 rounded-full ${
+                          i === achievementPage 
+                              ? darkMode ? 'bg-yellow-400' : 'bg-yellow-500'
+                              : darkMode ? 'bg-gray-600' : 'bg-gray-300'
+                      }`}
+                      aria-label={`Перейти к странице ${i + 1}`}
                   />
-                ))}
+              ))}
               </div>
             </motion.div>
           </div>
@@ -770,66 +783,66 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout }) => {
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { 
-                        value: testResults.length, 
-                        label: 'Пройдено тестов', 
-                        color: 'text-purple-600',
-                        bgColor: 'bg-purple-50',
-                        darkBgColor: 'bg-purple-950/20',
-                        icon: <FaBrain className="text-xl mb-1 text-purple-600 dark:text-purple-400" />
-                      },
-                      { 
-                        value: favoriteCategory?.name || 'Нет данных', 
-                        label: 'Любимая категория',
-                        color: 'text-pink-600',
-                        bgColor: 'bg-pink-50',
-                        darkBgColor: 'bg-pink-950/20',
-                        icon: <FaHeart className="text-xl mb-1 text-pink-600 dark:text-pink-400" />
-                      },
-                      { 
-                        value: mostActiveDay.date || 'Нет данных', 
-                        label: 'Самый активный день', 
-                        color: 'text-sky-600',
-                        bgColor: 'bg-sky-50',
-                        darkBgColor: 'bg-sky-950/20',
-                        icon: <FaCalendarDay className="text-xl mb-1 text-sky-600 dark:text-sky-400" />
-                      },
-                      { 
-                        value: favoriteTest.name || 'Нет данных', 
-                        label: 'Любимый тест', 
-                        color: 'text-emerald-600',
-                        bgColor: 'bg-emerald-50',
-                        darkBgColor: 'bg-emerald-950/20',
-                        icon: <FaClipboardList className="text-xl mb-1 text-emerald-600 dark:text-emerald-400" />
-                      },
-                    ].map((stat, index) => (
-                      <motion.div 
-                        key={index}
-                        variants={itemVariants}
-                        whileHover={{
-                          y: -5,
-                          transition: { duration: 0.2, ease: "easeInOut" }
-                        }}
-                        className={`p-4 rounded-lg text-center ${
-                          darkMode ? stat.darkBgColor : stat.bgColor
-                        } border ${
-                          darkMode ? 'border-gray-700' : 'border-gray-200'
-                        }`}
-                      >
-                        <div className="mb-2">
-                          {stat.icon}
-                        </div>
-                        <p className={`${
-                          stat.label === 'Пройдено тестов' ? 'text-3xl' : 'text-xl'
-                        } font-bold ${stat.color} transition-colors duration-200`}>
-                          {stat.value}
-                        </p>
-                        <p className={`text-sm mt-1 ${
-                          darkMode ? 'text-gray-300' : 'text-gray-600'
-                        } transition-colors duration-200`}>
-                          {stat.label}
-                        </p>
-                      </motion.div>
+                        { 
+                            value: testResults.length, 
+                            label: 'Пройдено тестов', 
+                            color: 'text-purple-600',
+                            bgColor: 'bg-purple-50',
+                            darkBgColor: 'bg-purple-950/20',
+                            icon: <FaBrain className="text-xl mb-1 text-purple-600 dark:text-purple-400" />
+                        },
+                        { 
+                            value: favoriteCategory?.name || 'Нет данных', 
+                            label: 'Любимая категория',
+                            color: 'text-pink-600',
+                            bgColor: 'bg-pink-50',
+                            darkBgColor: 'bg-pink-950/20',
+                            icon: <FaHeart className="text-xl mb-1 text-pink-600 dark:text-pink-400" />
+                        },
+                        { 
+                            value: mostActiveDay.date || 'Нет данных', 
+                            label: 'Самый активный день', 
+                            color: 'text-sky-600',
+                            bgColor: 'bg-sky-50',
+                            darkBgColor: 'bg-sky-950/20',
+                            icon: <FaCalendarDay className="text-xl mb-1 text-sky-600 dark:text-sky-400" />
+                        },
+                        { 
+                            value: favoriteTest.name || 'Нет данных', 
+                            label: 'Любимый тест', 
+                            color: 'text-emerald-600',
+                            bgColor: 'bg-emerald-50',
+                            darkBgColor: 'bg-emerald-950/20',
+                            icon: <FaClipboardList className="text-xl mb-1 text-emerald-600 dark:text-emerald-400" />
+                        },
+                    ].map((stat) => (
+                        <motion.div 
+                            key={stat.label} // Используем label как уникальный ключ
+                            variants={itemVariants}
+                            whileHover={{
+                                y: -5,
+                                transition: { duration: 0.2, ease: "easeInOut" }
+                            }}
+                            className={`p-4 rounded-lg text-center ${
+                                darkMode ? stat.darkBgColor : stat.bgColor
+                            } border ${
+                                darkMode ? 'border-gray-700' : 'border-gray-200'
+                            }`}
+                        >
+                            <div className="mb-2">
+                                {stat.icon}
+                            </div>
+                            <p className={`${
+                                stat.label === 'Пройдено тестов' ? 'text-3xl' : 'text-xl'
+                            } font-bold ${stat.color} transition-colors duration-200`}>
+                                {stat.value}
+                            </p>
+                            <p className={`text-sm mt-1 ${
+                                darkMode ? 'text-gray-300' : 'text-gray-600'
+                            } transition-colors duration-200`}>
+                                {stat.label}
+                            </p>
+                        </motion.div>
                     ))}
                   </div>
                 </motion.div>

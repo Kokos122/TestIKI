@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"myproject/auth"
@@ -15,34 +14,37 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/ulule/limiter/v3"
-	ginlimiter "github.com/ulule/limiter/v3/drivers/middleware/gin"
+	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin" // Use the correct import for ulule/limiter
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"go.uber.org/zap"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		// Извлекаем токен из куки
+		tokenString, err := c.Cookie("token")
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Токен не найден в куках"})
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		// Валидируем токен
 		claims, err := auth.ValidateToken(tokenString)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Недействительный токен"})
 			return
 		}
 
-		c.Set("username", claims.Username)
-
+		// Проверяем существование пользователя
 		var user database.User
-		if err := database.DB.Where("username = ?", claims.Username).First(&user).Error; err == nil {
-			c.Set("userID", user.ID)
+		if err := database.DB.Where("username = ?", claims.Username).First(&user).Error; err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не найден"})
+			return
 		}
 
+		// Устанавливаем данные в контекст
 		c.Set("username", claims.Username)
+		c.Set("userID", user.ID)
 		c.Next()
 	}
 }
@@ -98,13 +100,22 @@ func main() {
 	}))
 
 	// Настройка rate limiting
-	rate, err := limiter.NewRateFromFormatted("1-M") // 1 запрос за 1 минуту (эквивалентно 5 запросов за 5 минут)
+	rate, err := limiter.NewRateFromFormatted("10-M") // 5 requests per minute
 	if err != nil {
 		log.Fatalf("Failed to parse rate: %v", err)
 	}
 	store := memory.NewStore()
 	limiterInstance := limiter.New(store, rate)
-	limiterMiddleware := ginlimiter.NewMiddleware(limiterInstance)
+	// Customize the error response for rate limit exceeded
+	limiterMiddleware := mgin.NewMiddleware(limiterInstance, mgin.WithErrorHandler(func(c *gin.Context, err error) {
+		logger.Info("Rate limit exceeded",
+			zap.String("ip", c.ClientIP()),
+			zap.String("path", c.Request.URL.Path),
+		)
+		c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+			"error": "Превышено количество запросов в минуту. Подождите минуту и попробуйте снова.",
+		})
+	}))
 
 	// Публичные маршруты
 	router.POST("/register", handlers.Register)

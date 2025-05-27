@@ -8,25 +8,25 @@ const About_Us = ({ darkMode }) => {
       name: "Александр Матлай",
       role: "Frontend разработчик",
       vk: "https://vk.com/luna016",
-      photo: "https://randomuser.me/api/portraits/men/32.jpg"
+      photo: "https://res.cloudinary.com/dbynlpzwa/image/upload/v1748366330/9b3eefbd-0ab5-4f61-ac65-3f4fa8268322.png"
     },
     {
       name: "Александр Платонов",
       role: "UX/UI дизайнер",
       vk: "https://vk.com/platonich24",
-      photo: "https://randomuser.me/api/portraits/women/44.jpg"
+      photo: "https://res.cloudinary.com/dbynlpzwa/image/upload/v1748366443/cc3dc3ee-e930-4a2c-b40c-20ebbd5f5aac.png"
     },
     {
       name: "Георгий Тумашов",
       role: "Backend разработчик",
       vk: "https://vk.com/chizkeikk",
-      photo: "https://randomuser.me/api/portraits/men/22.jpg"
+      photo: "https://res.cloudinary.com/dbynlpzwa/image/upload/v1748366368/b2c35871-a21a-436f-a097-2f4e867afedd.png"
     },
     {
       name: "Илья Нефёдов",
       role: "Контент-менеджер",
       vk: "https://vk.com/lightzee",
-      photo: "https://randomuser.me/api/portraits/women/68.jpg"
+      photo: "https://res.cloudinary.com/dbynlpzwa/image/upload/v1748366502/1af90247-fb4f-4da9-a621-c993c45bf96c.png"
     }
   ];
 

@@ -4,9 +4,9 @@ go 1.24.0
 
 require (
 	github.com/cloudinary/cloudinary-go/v2 v2.9.1
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.7.4
 	github.com/gin-gonic/gin v1.10.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/joho/godotenv v1.5.1
 	github.com/ulule/limiter/v3 v3.11.2
 	go.uber.org/zap v1.27.0

@@ -24,16 +24,15 @@ import (
 type RegisterRequest struct {
 	Username        string `json:"username" binding:"required"`
 	Password        string `json:"password" binding:"required"`
-	Email           string `json:"email" binding:"required"`
+	Email           string `json:"email" binding:"required,email"`
 	ConfirmPassword string `json:"confirmPassword" binding:"required"`
 }
 
 type LoginRequest struct {
-	Username     string `json:"username" binding:"required"`
+	Identifier   string `json:"identifier" binding:"required"`
 	Password     string `json:"password" binding:"required"`
-	CaptchaToken string `json:"captchaToken"`
+	CaptchaToken string `json:"captcha_token"`
 }
-
 type TestResultRequest struct {
 	TestName   string `json:"test_name" binding:"required"`
 	Score      int    `json:"score" binding:"required"`
@@ -91,20 +90,45 @@ func isValidEmail(email string) bool {
 }
 
 func VerifyCaptcha(token string) (bool, error) {
-	resp, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
-		"secret":   {os.Getenv("RECAPTCHA_SECRET_KEY")},
+	start := time.Now()
+	log.Printf("Начало проверки reCAPTCHA, токен: %s", token)
+
+	if token == "" {
+		log.Println("Пустой токен CAPTCHA")
+		return false, errors.New("empty CAPTCHA token")
+	}
+
+	secretKey := os.Getenv("RECAPTCHA_SECRET_KEY")
+	if secretKey == "" {
+		log.Println("Переменная RECAPTCHA_SECRET_KEY не задана")
+		return false, errors.New("missing RECAPTCHA_SECRET_KEY")
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
+		"secret":   {secretKey},
 		"response": {token},
 	})
 	if err != nil {
+		log.Printf("Ошибка запроса reCAPTCHA: %v", err)
 		return false, err
 	}
 	defer resp.Body.Close()
 
 	var result struct {
-		Success bool `json:"success"`
+		Success    bool     `json:"success"`
+		ErrorCodes []string `json:"error-codes"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Printf("Ошибка декодирования ответа reCAPTCHA: %v", err)
 		return false, err
+	}
+
+	duration := time.Since(start).Seconds()
+	if !result.Success {
+		log.Printf("Проверка reCAPTCHA не удалась: %v, время: %fs", result.ErrorCodes, duration)
+	} else {
+		log.Printf("Проверка reCAPTCHA успешна, время: %fs", duration)
 	}
 	return result.Success, nil
 }
@@ -158,45 +182,59 @@ func Register(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
-	if c.Writer.Status() == http.StatusTooManyRequests {
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many login attempts, try again later"})
-		return
-	}
+	start := time.Now()
+	log.Println("Начало обработки запроса на вход")
 
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		log.Printf("Ошибка привязки запроса: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат запроса"})
 		return
 	}
 
 	var user database.User
-	if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+	if err := database.DB.Where("username = ? OR email = ?", req.Identifier, req.Identifier).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный логин или пароль"})
 		} else {
-			log.Printf("Database error: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			log.Printf("Ошибка базы данных: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
 		}
 		return
 	}
 
-	// Проверка блокировки
 	if user.LockUntil != nil && time.Now().Before(*user.LockUntil) {
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Account is locked, try again later"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Аккаунт заблокирован, попробуйте позже"})
 		return
 	}
 
-	// Проверка капчи после 3 попыток
-	if user.LoginAttempts >= 3 && req.CaptchaToken != "" {
-		if valid, err := VerifyCaptcha(req.CaptchaToken); err != nil || !valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid CAPTCHA"})
+	// Проверка капчи, если требуется
+	if user.LoginAttempts >= 3 {
+		if req.CaptchaToken == "" {
+			log.Printf("Требуется токен CAPTCHA для %s", req.Identifier)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":            "Требуется проверка CAPTCHA",
+				"captcha_required": true, // Явно указываем, что нужна капча
+			})
+			return
+		}
+		valid, err := VerifyCaptcha(req.CaptchaToken)
+		if err != nil || !valid {
+			log.Printf("Неверная CAPTCHA для %s: %v", req.Identifier, err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверная CAPTCHA"})
+			return
+		}
+		// Сбрасываем попытки и блокировку после успешной капчи
+		user.LoginAttempts = 0
+		user.LockUntil = nil
+		if err := database.DB.Save(&user).Error; err != nil {
+			log.Printf("Ошибка базы данных при сбросе попыток: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось сбросить попытки входа"})
 			return
 		}
 	}
 
-	// Проверка пароля
 	if err := user.CheckPassword(req.Password); err != nil {
-		// Увеличиваем счетчик попыток
 		user.LoginAttempts++
 		if user.LoginAttempts >= 5 {
 			lockUntil := time.Now().Add(15 * time.Minute)
@@ -204,36 +242,45 @@ func Login(c *gin.Context) {
 			user.LoginAttempts = 0
 		}
 		if err := database.DB.Save(&user).Error; err != nil {
-			log.Printf("Database error: %v", err)
+			log.Printf("Ошибка базы данных: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
 		}
-		// Задержка ответа
-		time.Sleep(2 * time.Second)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":            "Неверный логин или пароль",
+			"captcha_required": user.LoginAttempts >= 3, // Указываем, нужна ли капча
+		})
 		return
 	}
 
-	// Сбрасываем счетчик попыток при успешном входе
+	// Успешный вход: сбрасываем попытки и блокировку
 	user.LoginAttempts = 0
 	user.LockUntil = nil
 	if err := database.DB.Save(&user).Error; err != nil {
-		log.Printf("Database error: %v", err)
+		log.Printf("Ошибка базы данных: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
+		return
 	}
 
 	token, err := auth.GenerateToken(user.Username)
 	if err != nil {
-		log.Printf("Token generation error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
+		log.Printf("Ошибка генерации токена: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось сгенерировать токен"})
 		return
 	}
 
+	c.SetCookie("token", token, 24*3600, "/", "localhost", false, false)
+
+	duration := time.Since(start).Seconds()
+	log.Printf("Вход успешен для %s, время: %fs", req.Identifier, duration)
+
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
 		"user": gin.H{
 			"id":         user.ID,
 			"username":   user.Username,
 			"email":      user.Email,
 			"avatar_url": user.AvatarURL,
 		},
+		"token": token,
 	})
 }
 
@@ -419,8 +466,10 @@ func DeleteAvatar(c *gin.Context) {
 }
 
 func Logout(c *gin.Context) {
+	// Очищаем куки
+	c.SetCookie("token", "", -1, "/", "localhost", true, false)
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Logged out successfully",
+		"message": "Выход выполнен успешно",
 	})
 }
 
@@ -541,16 +590,20 @@ func SaveTestResult(c *gin.Context) {
 // Получение результатов тестов для профиля
 // handlers.go
 func GetUserTestResults(c *gin.Context) {
-	username := c.MustGet("username").(string)
-
-	// Находим пользователя по имени
-	var user database.User
-	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не аутентифицирован"})
 		return
 	}
 
-	// Получаем результаты тестов из test_results, включая category
+	// Находим пользователя по ID
+	var user database.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Пользователь не найден"})
+		return
+	}
+
+	// Получаем результаты тестов
 	var testResults []database.TestResult
 	err := database.DB.
 		Where("user_id = ?", user.ID).
@@ -558,16 +611,17 @@ func GetUserTestResults(c *gin.Context) {
 		Find(&testResults).Error
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch test results"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось загрузить результаты тестов"})
 		return
 	}
 
-	// Возвращаем результаты
 	c.JSON(http.StatusOK, gin.H{
 		"test_results": testResults,
 	})
 }
 
+// UpdateProfile handles updating the user's profile
+// UpdateProfile handles updating the user's profile
 // UpdateProfile handles updating the user's profile
 func UpdateProfile(c *gin.Context) {
 	// Get userID from context (set by AuthMiddleware)
@@ -591,9 +645,25 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	// Check if username is already taken by another user
+	if req.Username != "" && req.Username != user.Username {
+		var existingUser database.User
+		if err := database.DB.Where("username = ? AND id != ?", req.Username, userID).First(&existingUser).Error; err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "Username already taken"})
+			return
+		}
+	}
+
+	// Store old username for comparison
+	oldUsername := user.Username
+
 	// Update user fields
-	user.Username = req.Username
-	user.Email = req.Email
+	if req.Username != "" {
+		user.Username = req.Username
+	}
+	if req.Email != "" {
+		user.Email = req.Email
+	}
 
 	// Save changes to the database
 	if err := database.DB.Save(&user).Error; err != nil {
@@ -601,10 +671,24 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
+	// Generate new token if username changed
+	newToken := ""
+	if req.Username != "" && req.Username != oldUsername {
+		var err error
+		newToken, err = auth.GenerateToken(user.Username) // Pass username string
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new token"})
+			return
+		}
+		// Set new token in cookie
+		c.SetCookie("token", newToken, 24*3600, "/", "localhost", false, true)
+	}
+
 	// Return updated user data
 	c.JSON(http.StatusOK, gin.H{
 		"username":   user.Username,
 		"email":      user.Email,
 		"created_at": user.CreatedAt.Format(time.RFC3339),
+		"token":      newToken, // Empty string if token wasn't regenerated
 	})
 }

@@ -23,6 +23,7 @@ import WalkingDeadTest from "./components/WalkingDeadTest.js";
 import SmesharikiTest from "./components/SmesharikiTest.js";
 import WursTest from "./components/WursTest.js";
 import BeckHopelessnessTest from "./components/BeckHopelessnessTest.js";
+
 const AppWrapper = () => (
   <Router>
     <App />
@@ -49,7 +50,8 @@ const App = () => {
   }, [location.pathname]);
 
   const api = axios.create({
-    baseURL: 'http://localhost:8080'
+    baseURL: 'http://localhost:8080',
+    withCredentials: true // Включаем отправку куки
   });
 
   api.interceptors.response.use(
@@ -62,24 +64,19 @@ const App = () => {
     }
   );
 
-  const verifyAuth = async (token) => {
+  const verifyAuth = async () => {
     try {
-      const response = await api.get('/me', {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await api.get('/me');
       setIsAuthenticated(true);
       setCurrentUser({
-        id: response.data.user.id,
-        username: response.data.user.username,
-        email: response.data.user.email,
-        avatar_url: response.data.user.avatar_url || '/images/default-avatar.png'
+        id: response.data.id,
+        username: response.data.username,
+        email: response.data.email,
+        avatar_url: response.data.avatar_url || '/images/default-avatar.png'
       });
       return true;
     } catch (error) {
-      console.error('Verify auth error:', error);
+      console.error('Ошибка проверки аутентификации:', error);
       handleLogout();
       return false;
     }
@@ -87,10 +84,7 @@ const App = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        await verifyAuth(token);
-      }
+      await verifyAuth();
       setIsLoading(false);
     };
     checkAuth();
@@ -101,8 +95,7 @@ const App = () => {
   const closeSidebar = () => setIsSidebarOpen(false);
   const toggleTheme = () => setDarkMode(prev => !prev);
 
-  const handleLogin = (token, userData) => {
-    localStorage.setItem('token', token);
+  const handleLoginSuccess = (userData) => {
     setIsAuthenticated(true);
     setCurrentUser({
       id: userData.id,
@@ -118,9 +111,8 @@ const App = () => {
     try {
       await api.post('/logout');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Ошибка выхода:', error);
     } finally {
-      localStorage.removeItem('token');
       setIsAuthenticated(false);
       setCurrentUser({
         id: null,
@@ -162,7 +154,7 @@ const App = () => {
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-300
       ${darkMode ? "bg-gradient-to-br from-violet-500 to-violet-950"
-                : "bg-gradient-to-br from-neutral-50 to-neutral-100"}`}>
+                  : "bg-gradient-to-br from-neutral-50 to-neutral-100"}`}>
       
       <Header
         isAuthenticated={isAuthenticated}
@@ -180,7 +172,7 @@ const App = () => {
           {isAuthModalOpen && (
             <AuthModal
               onClose={toggleAuthModal}
-              onLoginSuccess={handleLogin}
+              onLoginSuccess={handleLoginSuccess}
             />
           )}
         </AnimatePresence>
@@ -197,6 +189,7 @@ const App = () => {
                   darkMode={darkMode} 
                   onAvatarUpdate={updateAvatar}
                   onLogout={handleLogout}
+                  onLoginSuccess={handleLoginSuccess}
                 /> : 
                 <Navigate to="/" />
             }
@@ -206,7 +199,7 @@ const App = () => {
             element={
               <TestsPage
                 darkMode={darkMode}
-                isAuthenticated={isAuthenticated} // Добавлено
+                isAuthenticated={isAuthenticated}
                 onSidebarToggle={toggleSidebar}
                 onProfileClick={handleProfileClick}
                 onThemeToggle={toggleTheme}
