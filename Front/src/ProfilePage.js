@@ -1,3 +1,4 @@
+import api from './api';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -87,9 +88,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, onLoginSuccess 
     const fetchTestResults = async () => {
       setIsLoadingResults(true);
       try {
-          const response = await axios.get('http://localhost:8080/user/test-results', {
-              withCredentials: true, // Куки отправляются автоматически
-          });
+          const response = await api.get('/user/test-results');
           setTestResults(response.data.test_results || []);
       } catch (error) {
           console.error('Error fetching test results:', error);
@@ -261,9 +260,7 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, onLoginSuccess 
   const handleDeleteAvatar = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.delete('http://localhost:8080/avatar', {
-            withCredentials: true // Use cookies for authentication
-        });
+      const response = await api.delete('/avatar');
       onAvatarUpdate(response.data.avatar_url || defaultAvatar);
       toast.success('Аватар сброшен на стандартный');
     } catch (error) {
@@ -293,21 +290,20 @@ const ProfilePage = ({ user, darkMode, onAvatarUpdate, onLogout, onLoginSuccess 
       formData.append('avatar', file);
 
       try {
-          const response = await axios.post(
-              'http://localhost:8080/upload-avatar',
-              formData,
-              {
-                  withCredentials: true, // Use cookies for authentication
-                  headers: {
-                      'Content-Type': 'multipart/form-data',
-                  },
-                  onUploadProgress: (progressEvent) => {
-                      const percentCompleted = Math.round(
-                          (progressEvent.loaded * 100) / progressEvent.total
-                      );
-                      setUploadProgress(percentCompleted);
-                  },
-              }
+          const response = await api.post(
+            '/upload-avatar',
+            formData,
+            {
+               headers: {
+                 'Content-Type': 'multipart/form-data',
+               },
+                onUploadProgress: (progressEvent) => {
+                   const percentCompleted = Math.round(
+                   (progressEvent.loaded * 100) / progressEvent.total
+                   );
+                    setUploadProgress(percentCompleted);
+                },
+            }
           );
           onAvatarUpdate(response.data.avatar_url);
           toast.success('Аватар успешно обновлен!');
@@ -325,10 +321,8 @@ const handleSaveProfile = async () => {
     setIsLoading(true);
     setUsernameError('');
     try {
-        const response = await axios.patch('http://localhost:8080/update-profile', {
+        const response = await api.patch('/update-profile', {
             username,
-        }, {
-            withCredentials: true
         });
         toast.success('Профиль успешно обновлен!');
         setIsEditing(false);
