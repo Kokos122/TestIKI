@@ -90,12 +90,17 @@ func main() {
 		)
 	})
 
-	// ИСПРАВЛЕННЫЕ CORS настройки
+	// Обновите настройки CORS, чтобы включить ваш домен Vercel
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "https://test-iki.vercel.app"},
+		AllowOrigins: []string{
+			"http://localhost:3000",
+			"https://test-iki.vercel.app",       // Ваш домен на Vercel
+			"https://*.vercel.app",              // Поддержка всех поддоменов Vercel
+			"https://testiki-33ur.onrender.com", // Ваш бэкенд
+		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cookie"},
+		ExposeHeaders:    []string{"Content-Length", "Set-Cookie"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
@@ -138,7 +143,7 @@ func main() {
 		authGroup.GET("/user/test-results", handlers.GetUserTestResults)
 		authGroup.PATCH("/update-profile", handlers.UpdateProfile)
 
-		// ПЕРЕМЕЩЕННЫЕ маршруты тестов в защищенную группу
+		// Защищенные маршруты тестов
 		authGroup.GET("/tests/:slug", handlers.GetTest)
 		authGroup.GET("/tests", handlers.GetTests)
 	}

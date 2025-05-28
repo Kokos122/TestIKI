@@ -18,9 +18,7 @@ const TestsPage = ({ darkMode, isAuthenticated }) => {
   useEffect(() => {
     const fetchTests = async () => {
       try {
-        const response = await axios.get("http://localhost:8080/tests", {
-          withCredentials: true, // Добавляем эту строку для передачи куки
-        })
+        const response = await api.get("/tests")
         if (!response.data.tests) {
           throw new Error("No tests found in response")
         }

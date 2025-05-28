@@ -1,81 +1,85 @@
-import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-import axios from 'axios';
+"use client"
 
-import HomePage from "./HomePage.js";
-import Header from "./Header.js";
-import Sidebar from "./Sidebar.js";
-import AuthModal from "./AuthModal.js";
-import Footer from "./Footer.js";
-import About_Us from "./About_Us.js";
-import ProfilePage from "./ProfilePage.js";
-import TestsPage from './TestsPage.js';
-import AnxietyTest from "./components/AnxietyTest.js";
-import LoveTest from "./components/LoveTest.js";
-import CareerTest from "./components/CareerTest.js";
-import LogicTest from "./components/LogicTest.js";
-import CreativityTest from "./components/CreativityTest.js";
-import FlagsTest from "./components/FlagsTest.js";
-import DuneTest from "./components/DuneTest.js";
-import MemoryTest from "./components/MemoryTest.js";
-import WalkingDeadTest from "./components/WalkingDeadTest.js";
-import SmesharikiTest from "./components/SmesharikiTest.js";
-import WursTest from "./components/WursTest.js";
-import BeckHopelessnessTest from "./components/BeckHopelessnessTest.js";
-import IntuitionTest from "./components/IntuitionTest.js";
-import BecksAnxietyScale from "./components/BecksAnxietyScale.js";
-import AttitudeTest from "./components/AttitudeTest.js";
-import NarcissistTest from "./components/NarcissistTest.js";
-import EpworthSleepinessScale from "./components/EpworthSleepinessScale.js";
-import MindMazeTest from "./components/MindMazeTest.js";
-import ResetPasswordPage from "./ResetPasswordPage.js"; // Оставьте только одну строку
-import EmailVerificationPage from "./EmailVerificationPage.js";
+import { useState, useEffect } from "react"
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom"
+import { AnimatePresence } from "framer-motion"
+import api from "./api" // Добавьте этот импорт в начало файла
+
+import HomePage from "./HomePage.js"
+import Header from "./Header.js"
+import Sidebar from "./Sidebar.js"
+import AuthModal from "./AuthModal.js"
+import Footer from "./Footer.js"
+import About_Us from "./About_Us.js"
+import ProfilePage from "./ProfilePage.js"
+import TestsPage from "./TestsPage.js"
+import ResetPasswordPage from "./ResetPasswordPage.js"
+import EmailVerificationPage from "./EmailVerificationPage.js"
+import AnxietyTest from "./AnxietyTest.js"
+import LoveTest from "./LoveTest.js"
+import CareerTest from "./CareerTest.js"
+import LogicTest from "./LogicTest.js"
+import CreativityTest from "./CreativityTest.js"
+import FlagsTest from "./FlagsTest.js"
+import DuneTest from "./DuneTest.js"
+import MemoryTest from "./MemoryTest.js"
+import WalkingDeadTest from "./WalkingDeadTest.js"
+import SmesharikiTest from "./SmesharikiTest.js"
+import WursTest from "./WursTest.js"
+import BeckHopelessnessTest from "./BeckHopelessnessTest.js"
+import IntuitionTest from "./IntuitionTest.js"
+import BecksAnxietyScale from "./BecksAnxietyScale.js"
+import AttitudeTest from "./AttitudeTest.js"
+import NarcissistTest from "./NarcissistTest.js"
+import EpworthSleepinessScale from "./EpworthSleepinessScale.js"
+import MindMazeTest from "./MindMazeTest.js"
+// ... другие импорты
 
 const AppWrapper = () => (
   <Router>
     <App />
   </Router>
-);
+)
 
 const App = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [darkMode, setDarkMode] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [currentUser, setCurrentUser] = useState({
     id: null,
-    username: '',
-    email: '',
-    avatar_url: '/images/default-avatar.png'
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
-  const location = useLocation();
-  //добавлено для сброса пароля
-  const publicRoutes = ['/reset-password', '/verify-email'];
-  const isPublicRoute = publicRoutes.includes(location.pathname);
+    username: "",
+    email: "",
+    avatar_url: "/images/default-avatar.png",
+  })
+  const [isLoading, setIsLoading] = useState(true)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const publicRoutes = ["/reset-password", "/verify-email"]
+  const isPublicRoute = publicRoutes.includes(location.pathname)
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+    window.scrollTo(0, 0)
+  }, [location.pathname])
 
-  const api = axios.create({
-    baseURL: "http://localhost:8080",
-    withCredentials: true,
-    timeout: 10000,
-  })
+  // Настройка интерцептора для обработки ошибок авторизации
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401 && !isPublicRoute) {
+          console.log("401 error, logging out...")
+          handleLogout()
+        }
+        return Promise.reject(error)
+      },
+    )
 
-  api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-      if (error.response?.status === 401 && !isPublicRoute) {
-        console.log("401 error, logging out...")
-        handleLogout()
-      }
-      return Promise.reject(error)
-    },
-  )
+    return () => {
+      api.interceptors.response.eject(interceptor)
+    }
+  }, [isPublicRoute])
 
   const verifyAuth = async () => {
     try {
@@ -128,7 +132,6 @@ const App = () => {
       avatar_url: userData.avatar_url || "/images/default-avatar.png",
     })
     setIsAuthModalOpen(false)
-    // НЕ перенаправляем автоматически на профиль
     navigate("/profile")
   }
 
@@ -197,7 +200,15 @@ const App = () => {
 
       <div className="flex-grow">
         <AnimatePresence>
-          {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} darkMode={darkMode} isAuthenticated={isAuthenticated} onAuthModalOpen={toggleAuthModal} />}
+          {isSidebarOpen && (
+            <Sidebar
+              isOpen={isSidebarOpen}
+              onClose={closeSidebar}
+              darkMode={darkMode}
+              isAuthenticated={isAuthenticated}
+              onAuthModalOpen={toggleAuthModal}
+            />
+          )}
           {isAuthModalOpen && <AuthModal onClose={toggleAuthModal} onLoginSuccess={handleLoginSuccess} />}
         </AnimatePresence>
 
@@ -313,4 +324,4 @@ const App = () => {
   )
 }
 
-export default AppWrapper;
+export default AppWrapper
