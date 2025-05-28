@@ -1,4 +1,5 @@
-import api from './api';
+
+import api from './api.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
