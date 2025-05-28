@@ -196,7 +196,7 @@ func Register(c *gin.Context) {
 
 	if err := database.DB.Create(&user).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
-			c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
+			c.JSON(http.StatusConflict, gin.H{"error": "Логин или email уже занят"})
 		} else {
 			log.Printf("Database error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user"})

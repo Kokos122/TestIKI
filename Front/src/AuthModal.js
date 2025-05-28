@@ -41,13 +41,11 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
     if (!/[0-9]/.test(password)) {
       return "Пароль должен содержать хотя бы одну цифру!";
     }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      return "Пароль должен содержать хотя бы один специальный символ!";
+    }
     return null;
   };
-
-  const handleSocialAuth = (provider) => {
-    alert(`Быстрый вход через ${provider} в разработке`);
-  };
-
 
  const handleAuth = async (e) => {
     e.preventDefault();
@@ -56,7 +54,7 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
     setError("");
 
     if (!username || !password) {
-        setError("Все поля обязательны!");
+        setError("Все поля обязательны для заполнения!");
         setIsLoading(false);
         return;
     }
@@ -381,35 +379,6 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
                   </div>
                 ) : isRegister ? "Зарегистрироваться" : "Войти"}
               </motion.button>
-
-              <motion.div
-                className="flex justify-center gap-5 mt-3"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.9 }}
-              >
-                <motion.div
-                  className="w-11 h-11 flex justify-center items-center bg-red-500 text-white rounded-full cursor-pointer"
-                  whileHover={{ scale: 1.2 }}
-                  onClick={() => handleSocialAuth("Google")}
-                >
-                  <FaGoogle style={{ fontSize: "1.4rem" }} />
-                </motion.div>
-                <motion.div
-                  className="w-11 h-11 flex justify-center items-center bg-blue-600 text-white rounded-full cursor-pointer"
-                  whileHover={{ scale: 1.2 }}
-                  onClick={() => handleSocialAuth("VK")}
-                >
-                  <SlSocialVkontakte style={{ fontSize: "1.6rem", color: "white" }} />
-                </motion.div>
-                <motion.div
-                  className="w-11 h-11 flex justify-center items-center bg-blue-400 text-white rounded-full cursor-pointer"
-                  whileHover={{ scale: 1.2 }}
-                  onClick={() => handleSocialAuth("Telegram")}
-                >
-                  <SiTelegram style={{ fontSize: "1.6rem", color: "white" }} />
-                </motion.div>
-              </motion.div>
 
               <motion.p
                 className="text-blue-500 text-sm cursor-pointer mt-6"

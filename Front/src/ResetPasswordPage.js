@@ -163,6 +163,7 @@ const ResetPasswordPage = ({ darkMode }) => {
             <ul className="list-disc list-inside space-y-1 mt-1">
               <li>Минимум 8 символов</li>
               <li>Заглавные и строчные буквы</li>
+              <li>Специальный символ</li>
               <li>Цифры</li>
             </ul>
           </div>
