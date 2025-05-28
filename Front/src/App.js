@@ -23,6 +23,12 @@ import WalkingDeadTest from "./components/WalkingDeadTest.js";
 import SmesharikiTest from "./components/SmesharikiTest.js";
 import WursTest from "./components/WursTest.js";
 import BeckHopelessnessTest from "./components/BeckHopelessnessTest.js";
+import IntuitionTest from "./components/IntuitionTest.js";
+import BecksAnxietyScale from "./components/BecksAnxietyScale.js";
+import AttitudeTest from "./components/AttitudeTest.js";
+import NarcissistTest from "./components/NarcissistTest.js";
+import EpworthSleepinessScale from "./components/EpworthSleepinessScale.js";
+import MindMazeTest from "./components/MindMazeTest.js";
 import ResetPasswordPage from "./ResetPasswordPage.js"; //новый файл для сброса пароля
 import EmailVerificationPage from "./EmailVerificationPage.js"; // новый файл для подтверждения пароля
 
@@ -233,6 +239,12 @@ const App = () => {
           <Route path="/smeshariki-test" element={<SmesharikiTest darkMode={darkMode} />} />
           <Route path="/wurs-25" element={<WursTest darkMode={darkMode} />} />
           <Route path="/beck-hopelessness-test" element={<BeckHopelessnessTest darkMode={darkMode} />} />
+          <Route path="/intuition-test" element={<IntuitionTest darkMode={darkMode} />} />
+          <Route path="/becks-anxiety-scale" element={<BecksAnxietyScale darkMode={darkMode} />} />
+          <Route path="/attitude-test" element={<AttitudeTest darkMode={darkMode} />} />
+          <Route path="/narcissist-test" element={<NarcissistTest darkMode={darkMode} />} />
+          <Route path="/epworth-sleepiness-scale" element={<EpworthSleepinessScale darkMode={darkMode} />} />
+          <Route path="/mind-maze-test" element={<MindMazeTest darkMode={darkMode} />} />
         </Routes>
       </div>
 

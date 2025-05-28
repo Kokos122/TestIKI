@@ -1,18 +1,19 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { FaVk } from "react-icons/fa";
 
 const HomePage = ({ darkMode }) => {
   const testItems = [
-    { img: "/images/Test9.png", title: "Кто ты из Ходячих мертвецов?", link: "/walking-dead-test" },
-    { img: "/images/Test1.png", title: "Кто ты из Смешариков?", link: "/smeshariki-test" },
-    { img: "/images/Test2.png", title: "Тест на тревожность", link: "/anxiety-test" },
-    { img: "/images/Test3.png", title: "Тест на влюбленность", link: "/love-test" },
+    { img: "/images/Test9.png", title: "Нарциссический опросник личности", link: "/narcissist-test" },
+    { img: "/images/Test1.png", title: "Шкала сонливости Эпворта", link: "/epworth-sleepiness-scale" },
+    { img: "/images/Test2.png", title: "Шкала тревоги Бека", link: "/becks-anxiety-scale" },
+    { img: "/images/Test3.png", title: "Насколько прочны ваши отношения?", link: "/attitude-test" },
     { img: "/images/Test4.png", title: "Тест на проф.ориентацию", link: "/career-test" },
-    { img: "/images/Test5.png", title: "Тест на логику", link: "/logic-test" },
+    { img: "/images/Test5.png", title: "Лабиринт разума", link: "/mind-maze-test" },
     { img: "/images/Test6.png", title: "Тест на креативность", link: "/creativity-test" },
     { img: "/images/Test7.png", title: "Тест на знание флагов", link: "/flags-test" },
-    { img: "/images/Test8.png", title: "Кто ты из Дюны?", link: "/dune-test" },
+    { img: "/images/Test8.png", title: "Насколько развита твоя интуиция?", link: "/intuition-test" },
     { img: "/images/Test10.png", title: "Тест на память", link: "/memory-test" },
   ];
 
@@ -264,7 +265,7 @@ const HomePage = ({ darkMode }) => {
               className={`text-xl mb-8 max-w-md ${darkMode ? 
                 "text-gray-300" : "text-gray-600"}`}
             >
-              Подпишитесь, чтобы узнавать о новых тестах первыми!
+              Присоединяйтесь к нашей группе ВКонтакте!
             </motion.p>
             
             <motion.div 
@@ -294,7 +295,7 @@ const HomePage = ({ darkMode }) => {
                     transition={{
                       duration: 4,
                       repeat: Infinity,
-                      delay: i * 0.3 + 0.6 // Задержка после завершения анимации появления
+                      delay: i * 0.3 + 0.6
                     }}
                     className="text-4xl inline-block"
                   >
@@ -309,28 +310,17 @@ const HomePage = ({ darkMode }) => {
               transition={{ delay: 0.3 }}
               className="w-full max-w-md mx-auto"
             >
-              <div className={`flex rounded-full overflow-hidden shadow-lg ${
-                darkMode 
-                  ? "bg-gray-700/70 backdrop-blur-sm border border-gray-600/30" 
-                  : "bg-white/95 backdrop-blur-sm border border-gray-200/30"
-              }`}>
-                <input 
-                  type="email" 
-                  placeholder="Ваш email" 
-                  className={`flex-grow px-6 py-4 outline-none ${
-                    darkMode 
-                      ? "bg-transparent text-white placeholder-gray-400" 
-                      : "bg-transparent text-gray-800 placeholder-gray-500"
-                  }`}
-                />
-                <button className={`px-8 py-4 font-bold transition-all ${
-                  darkMode 
-                    ? "bg-indigo-600 hover:bg-indigo-700 text-white" 
-                    : "bg-indigo-500 hover:bg-indigo-600 text-white"
-                } transform hover:scale-[1.03]`}>
-                  Подписаться
-                </button>
-              </div>
+              <a 
+                href="https://vk.com/club230652004" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={`inline-flex items-center px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 ${darkMode ? 
+                  "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg hover:shadow-indigo-500/30" : 
+                  "bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg hover:shadow-lg"} transform hover:-translate-y-1`}
+              >
+                ВКонтакте
+                <FaVk className="h-5 w-5 ml-2" />
+              </a>
             </motion.div>
           </motion.div>
         </div>

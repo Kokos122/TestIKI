@@ -1,244 +1,265 @@
-import React, { useState } from "react";
-import { FaQuestionCircle } from "react-icons/fa";
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
+import TestLayout from "./TestLayout.js";
+import { toast } from "react-toastify";
 
 const MemoryTest = ({ darkMode }) => {
+  const location = useLocation();
+  const slug = location.pathname.split("/")[1]; // e.g., "memory-test"
+  const navigate = useNavigate();
+  const [test, setTest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState(Array(15).fill(null));
-  const [totalScore, setTotalScore] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [answers, setAnswers] = useState({});
+  const [resultData, setResultData] = useState({
+    text: "",
+    description: "",
+    percentage: 0,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [testDescription, setTestDescription] = useState("");
 
-  const questions = [
-    {
-      text: "Как часто вы забываете имена новых знакомых?",
-      options: [
-        "Почти всегда",
-        "Иногда, особенно если людей много",
-        "Редко, только если не сосредоточусь",
-        "Практически никогда"
-      ]
-    },
-    {
-      text: "Как вы запоминаете важные даты (дни рождения, встречи)?",
-      options: [
-        "Полностью полагаюсь на напоминания в телефоне",
-        "Иногда записываю, иногда полагаюсь на память",
-        "Стараюсь запомнить, но иногда использую заметки",
-        "Всегда запоминаю без напоминаний"
-      ]
-    },
-    {
-      text: "Как вы справляетесь с запоминанием списков (например, покупок)?",
-      options: [
-        "Всегда записываю, иначе забуду",
-        "Иногда записываю, иногда полагаюсь на память",
-        "Стараюсь запомнить, но иногда что-то упускаю",
-        "Легко запоминаю списки без записей"
-      ]
-    },
-    {
-      text: "Как вы запоминаете прочитанную информацию?",
-      options: [
-        "Почти сразу забываю",
-        "Запоминаю только ключевые моменты",
-        "Запоминаю большую часть, если информация интересная",
-        "Легко запоминаю детали и могу пересказать"
-      ]
-    },
-    {
-      text: "Как вы запоминаете маршруты в новом городе?",
-      options: [
-        "Всегда пользуюсь навигатором",
-        "Иногда запоминаю, но часто теряюсь",
-        "Обычно запоминаю после пары раз",
-        "Легко запоминаю маршруты с первого раза"
-      ]
-    },
-    {
-      text: "Как вы запоминаете номера телефонов?",
-      options: [
-        "Не запоминаю, всегда пользуюсь контактами",
-        "Запоминаю только самые важные номера",
-        "Запоминаю, если часто набираю",
-        "Легко запоминаю номера с первого раза"
-      ]
-    },
-    {
-      text: "Как вы запоминаете лица людей?",
-      options: [
-        "Часто забываю, даже если видел(а) их несколько раз",
-        "Запоминаю, только если человек произвел впечатление",
-        "Обычно запоминаю, но иногда путаю",
-        "Легко запоминаю лица даже после одной встречи"
-      ]
-    },
-    {
-      text: "Как вы запоминаете информацию на работе или учебе?",
-      options: [
-        "Всегда делаю заметки, иначе забываю",
-        "Запоминаю только самое важное",
-        "Стараюсь запомнить, но иногда что-то упускаю",
-        "Легко запоминаю детали и могу воспроизвести"
-      ]
-    },
-    {
-      text: "Как вы запоминаете сны?",
-      options: [
-        "Почти никогда не помню сны",
-        "Иногда помню, но только отрывки",
-        "Часто помню сны, особенно яркие",
-        "Всегда помню сны в деталях"
-      ]
-    },
-    {
-      text: "Как вы запоминаете фильмы или книги?",
-      options: [
-        "Почти сразу забываю сюжет",
-        "Запоминаю только основные моменты",
-        "Запоминаю большую часть, если произведение интересное",
-        "Легко запоминаю детали и могу пересказать"
-      ]
-    },
-    {
-      text: "Как вы запоминаете инструкции или указания?",
-      options: [
-        "Всегда записываю, иначе забуду",
-        "Запоминаю только ключевые моменты",
-        "Стараюсь запомнить, но иногда что-то упускаю",
-        "Легко запоминаю и выполняю без напоминаний"
-      ]
-    },
-    {
-      text: "Как вы запоминаете события из прошлого?",
-      options: [
-        "Часто забываю даже важные события",
-        "Запоминаю только самые яркие моменты",
-        "Обычно помню, но иногда путаю детали",
-        "Легко вспоминаю события в деталях"
-      ]
-    },
-    {
-      text: "Как вы запоминаете тексты песен?",
-      options: [
-        "Почти никогда не запоминаю",
-        "Запоминаю только припев или несколько строк",
-        "Запоминаю, если часто слушаю песню",
-        "Легко запоминаю тексты с первого раза"
-      ]
-    },
-    {
-      text: "Как вы запоминаете информацию, которую услышали в разговоре?",
-      options: [
-        "Почти сразу забываю",
-        "Запоминаю только ключевые моменты",
-        "Обычно запоминаю, но иногда что-то упускаю",
-        "Легко запоминаю детали и могу пересказать"
-      ]
-    },
-    {
-      text: "Как вы запоминаете свои планы на день?",
-      options: [
-        "Всегда записываю, иначе забуду",
-        "Иногда записываю, иногда полагаюсь на память",
-        "Стараюсь запомнить, но иногда что-то упускаю",
-        "Легко запоминаю и выполняю без напоминаний"
-      ]
+  const api = axios.create({
+    baseURL: "http://localhost:8080",
+    withCredentials: true,
+  });
+
+  useEffect(() => {
+    if (!slug) {
+      navigate("/tests");
+      return;
     }
-  ];
 
-  const handleAnswerChange = (value) => {
-    setAnswers((prevAnswers) => {
-      const newAnswers = [...prevAnswers];
-      newAnswers[currentQuestion] = value + 1;
-      return newAnswers;
-    });
-  };
+    const fetchTest = async () => {
+      try {
+        const response = await api.get(`/tests/${slug}`);
+        if (!response.data.test) {
+          throw new Error("Test data is empty");
+        }
+        setTest(response.data.test);
+        setTestDescription(response.data.test.description || "");
+      } catch (err) {
+        console.error("Error:", err.response?.data || err.message);
+        setError(err.response?.data?.error || "Не удалось загрузить тест");
+        toast.error("Не удалось загрузить тест");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const nextQuestion = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
+    fetchTest();
+  }, [slug, navigate]);
+
+  const questions = test?.questions || [];
+
+  const handleAnswerChange = (questionId, value) => {
+    const numericValue = parseInt(value, 10);
+    if (
+      isNaN(numericValue) ||
+      numericValue < 0 ||
+      numericValue >= questions.find((q) => q.id === questionId)?.options.length
+    ) {
+      console.warn(`Invalid answer value for question ${questionId}:`, value);
+      return;
     }
-  };
 
-  const prevQuestion = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(currentQuestion - 1);
-    }
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: numericValue,
+    }));
+
+    setTimeout(() => {
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion((prev) => prev + 1);
+      }
+    }, 400);
   };
 
   const calculateScore = () => {
-    if (answers.some((answer) => answer === null)) {
-      alert("Пожалуйста, ответьте на все вопросы!");
+    if (Object.keys(answers).length !== questions.length) {
+      toast.warning("Пожалуйста, ответьте на все вопросы");
       return;
     }
-    setIsLoading(true);
-    setTimeout(() => {
-      const score = answers.reduce((sum, answer) => sum + answer, 0);
-      setTotalScore(score);
-      setIsLoading(false);
-    }, 1000);
+
+    setIsSubmitting(true);
+
+    try {
+      if (!test?.scoring_rules) {
+        throw new Error("Правила оценки не найдены");
+      }
+
+      let scoringData = test.scoring_rules;
+      if (typeof scoringData === "string") {
+        scoringData = JSON.parse(scoringData);
+      }
+
+      if (!scoringData?.scoring?.ranges) {
+        throw new Error("Некорректные правила оценки");
+      }
+
+      // Подсчет баллов
+      let totalScore = 0;
+      questions.forEach((question) => {
+        const userAnswer = answers[question.id];
+        if (userAnswer !== undefined) {
+          // Присваиваем баллы: 0=0, 1=1, 2=2, 3=3
+          totalScore += userAnswer;
+        }
+      });
+
+      // Конвертация в проценты (макс. баллов = 15 * 3 = 45)
+      const maxScore = questions.length * 3;
+      const percentageScore = Math.round((totalScore / maxScore) * 100);
+
+      console.log(
+        `Total Score: ${totalScore}, Max Score: ${maxScore}, Percentage: ${percentageScore}%`
+      );
+
+      // Находим соответствующий диапазон
+      const matchedRange = scoringData.scoring.ranges.find(
+        (range) => percentageScore >= (range.min || 0) && percentageScore <= range.max
+      ) || {};
+
+      setResultData({
+        text: matchedRange.text || `Результат: ${percentageScore}%`,
+        description: matchedRange.description || "",
+        percentage: percentageScore,
+      });
+
+      return saveTestResult(percentageScore, matchedRange.text);
+    } catch (err) {
+      console.error("Ошибка расчета:", err);
+      setResultData({
+        text: "Ошибка расчета",
+        description: err.message,
+        percentage: 0,
+      });
+      toast.error("Ошибка при расчете результата");
+      throw err;
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const getResultText = () => {
-    if (totalScore <= 15) return "Ваша память нуждается в тренировке. Вы часто забываете важные вещи и полагаетесь на внешние напоминания. Попробуйте использовать техники запоминания, такие как ассоциации или повторение.";
-    if (totalScore <= 30) return "У вас средний уровень памяти. Вы запоминаете ключевые моменты, но иногда что-то упускаете. Попробуйте чаще тренировать память, например, с помощью упражнений или игр.";
-    if (totalScore <= 45) return "У вас хорошая память! Вы запоминаете большую часть информации, но иногда что-то может ускользнуть. Продолжайте тренировать память, чтобы улучшить её ещё больше.";
-    return "У вас отличная память! Вы легко запоминаете детали и можете воспроизводить информацию без труда. Продолжайте поддерживать свою память в тонусе.";
+  const saveTestResult = async (score, resultText) => {
+    try {
+      const payload = {
+        test_slug: slug,
+        test_name: test.title,
+        score: score || 0,
+        result_text: resultText || "Результат не определен",
+        answers: answers,
+      };
+
+      await api.post("/test-result", payload, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      toast.success("Результат сохранен!");
+    } catch (error) {
+      console.error("Ошибка сохранения:", error);
+      if (error.response?.status === 401) {
+        toast.error("Сессия истекла. Пожалуйста, войдите снова.");
+        navigate("/");
+      } else {
+        toast.error(error.response?.data?.error || "Ошибка сохранения");
+      }
+      throw error;
+    }
   };
+
+  if (loading) {
+    return (
+      <div
+        className={`flex justify-center items-center h-screen ${
+          darkMode ? "bg-gray-900" : "bg-gray-100"
+        }`}
+      >
+        <div
+          className={`animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 ${
+            darkMode ? "border-blue-400" : "border-blue-500"
+          }`}
+        ></div>
+      </div>
+    );
+  }
+
+  if (error || !test) {
+    return (
+      <div
+        className={`flex flex-col justify-center items-center h-screen p-4 ${
+          darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
+        }`}
+      >
+        <h2 className="text-2xl font-bold mb-4">
+          {error ? "Ошибка" : "Тест не найден"}
+        </h2>
+        <p className={`mb-6 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+          {error || "Запрошенный тест не существует"}
+        </p>
+        <button
+          onClick={() => navigate("/tests")}
+          className={`px-6 py-3 rounded-lg ${
+            darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
+          } text-white`}
+        >
+          Вернуться к тестам
+        </button>
+      </div>
+    );
+  }
+
+  const currentQuestionData = questions[currentQuestion];
 
   return (
-    <div className={`container mx-auto p-4 min-h-screen ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"}`}>
-      <h1 className="text-3xl font-bold text-center mb-6">Тест на память</h1>
-
-      <div className="relative pt-1 mb-4">
-        <div className="overflow-hidden h-4 mb-2 text-xs flex rounded bg-gray-700">
-          <div style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
-        </div>
-        <p className="text-sm text-gray-400">Вопрос {currentQuestion + 1} из {questions.length}</p>
-      </div>
-
-      <div className={`p-6 rounded-lg shadow-md ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-        <p className="font-semibold flex items-center text-lg">
-          <FaQuestionCircle className="text-blue-500 mr-2" /> {questions[currentQuestion].text}
-        </p>
-        {questions[currentQuestion].options.map((option, index) => (
-          <label key={index} className="block mt-3 cursor-pointer">
-            <input
-              type="radio"
-              name={`question-${currentQuestion}`}
-              value={index}
-              checked={answers[currentQuestion] === index + 1}
-              onChange={() => handleAnswerChange(index)}
-              className="mr-2"
-            />
-            {option}
-          </label>
-        ))}
-      </div>
-
-      <div className="flex justify-between mt-4">
-        <button onClick={prevQuestion} disabled={currentQuestion === 0} className="px-4 py-2 bg-gray-600 text-white rounded disabled:opacity-50">Назад</button>
-        <button onClick={nextQuestion} disabled={currentQuestion === questions.length - 1} className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50">Далее</button>
-      </div>
-
-      <div className="mt-6">
-        {isLoading ? (
-          <div className="flex justify-center items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+    <TestLayout
+      darkMode={darkMode}
+      title={test.title}
+      description={testDescription}
+      currentQuestion={currentQuestion}
+      totalQuestions={questions.length}
+      onPrev={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
+      onNext={() => {
+        if (answers[currentQuestionData.id] !== undefined) {
+          setCurrentQuestion((prev) => Math.min(questions.length - 1, prev + 1));
+        } else {
+          toast.warning("Пожалуйста, выберите ответ");
+        }
+      }}
+      onSubmit={calculateScore}
+      isSubmitting={isSubmitting}
+      canSubmit={Object.keys(answers).length === questions.length}
+      showResults={resultData.text !== ""}
+      results={
+        <div className="space-y-4">
+          <div
+            className={`p-4 rounded-lg ${
+              darkMode ? "bg-gray-800" : "bg-blue-50"
+            }`}
+          >
+            <p className="text-xl font-semibold mb-2">{resultData.text}</p>
+            <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+              Ваш уровень памяти: {resultData.percentage}%.
+            </p>
+            {resultData.description && (
+              <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                {resultData.description}
+              </p>
+            )}
           </div>
-        ) : (
-          <button onClick={calculateScore} className="w-full bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Рассчитать результат</button>
-        )}
-      </div>
-
-      {totalScore !== null && (
-        <div className={`mt-6 p-6 rounded-lg shadow-lg ${darkMode ? "bg-gray-800" : "bg-white"}`}>
-          <h2 className="text-2xl font-bold">Результат:</h2>
-          <p className="text-xl">{getResultText()}</p>
-          <Link to="/" className="flex items-center z-10"><button className="w-full bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg mt-4">Выйти на главную</button></Link>
         </div>
-      )}
-    </div>
+      }
+      onHome={() => navigate("/")}
+      currentQuestionData={currentQuestionData}
+      answers={answers}
+      handleAnswerChange={handleAnswerChange}
+      isLoading={loading}
+      error={error}
+    />
   );
 };
 

@@ -4,9 +4,9 @@ import axios from "axios";
 import TestLayout from "./TestLayout.js";
 import { toast } from "react-toastify";
 
-const FlagsTest = ({ darkMode }) => {
+const IntuitionTest = ({ darkMode }) => {
   const location = useLocation();
-  const slug = location.pathname.split("/")[1]; // e.g., "flags-test"
+  const slug = location.pathname.split("/")[1]; // e.g., "intuition-test"
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,6 @@ const FlagsTest = ({ darkMode }) => {
     const fetchTest = async () => {
       try {
         const response = await api.get(`/tests/${slug}`);
-        console.log("API Response:", response.data); // Для отладки
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
@@ -56,9 +55,12 @@ const FlagsTest = ({ darkMode }) => {
   const questions = test?.questions || [];
 
   const handleAnswerChange = (questionId, value) => {
-    // Преобразуем value в число (индекс варианта ответа)
     const numericValue = parseInt(value, 10);
-    if (isNaN(numericValue) || numericValue < 0 || numericValue >= questions.find(q => q.id === questionId)?.options.length) {
+    if (
+      isNaN(numericValue) ||
+      numericValue < 0 ||
+      numericValue >= questions.find((q) => q.id === questionId)?.options.length
+    ) {
       console.warn(`Invalid answer value for question ${questionId}:`, value);
       return;
     }
@@ -97,21 +99,23 @@ const FlagsTest = ({ darkMode }) => {
         throw new Error("Некорректные правила оценки");
       }
 
-      // Подсчет правильных ответов
-      let correctAnswers = 0;
+      // Подсчет баллов
+      let totalScore = 0;
       questions.forEach((question) => {
         const userAnswer = answers[question.id];
-        if (userAnswer !== undefined && userAnswer === question.answer) {
-          correctAnswers += 1;
+        if (userAnswer !== undefined) {
+          // Присваиваем баллы: 0=0, 1=1, 2=2, 3=3
+          totalScore += userAnswer;
         }
-        console.log(`Question ${question.id}: User Answer = ${userAnswer}, Correct Answer = ${question.answer}`); // Логирование
       });
 
-      // Конвертация в проценты
-      const totalQuestions = questions.length;
-      const percentageScore = Math.round((correctAnswers / totalQuestions) * 100);
+      // Конвертация в проценты (макс. баллов = 21 * 3 = 63)
+      const maxScore = questions.length * 3;
+      const percentageScore = Math.round((totalScore / maxScore) * 100);
 
-      console.log(`Correct Answers: ${correctAnswers}, Total Questions: ${totalQuestions}, Percentage: ${percentageScore}%`);
+      console.log(
+        `Total Score: ${totalScore}, Max Score: ${maxScore}, Percentage: ${percentageScore}%`
+      );
 
       // Находим соответствующий диапазон
       const matchedRange = scoringData.scoring.ranges.find(
@@ -239,7 +243,7 @@ const FlagsTest = ({ darkMode }) => {
           >
             <p className="text-xl font-semibold mb-2">{resultData.text}</p>
             <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-              Вы ответили правильно на {resultData.percentage}% вопросов.
+              Ваш уровень интуиции: {resultData.percentage}%.
             </p>
             {resultData.description && (
               <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
@@ -259,4 +263,4 @@ const FlagsTest = ({ darkMode }) => {
   );
 };
 
-export default FlagsTest;
+export default IntuitionTest;

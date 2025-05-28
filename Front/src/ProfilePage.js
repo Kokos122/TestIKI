@@ -563,7 +563,7 @@ const handleSaveProfile = async () => {
                     <h2 className="text-2xl font-bold">{user.username}</h2>
                     <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mt-1`}>{user.email}</p>
                     <p className={`text-sm mt-2 ${darkMode ? "text-gray-500" : "text-gray-400"}`}>
-                      Зарегистрирован: {new Date(user.createdAt).toLocaleDateString('ru-RU')}
+                      
                     </p>
                   </div>
                   <div className="flex flex-col space-y-3">
@@ -850,7 +850,7 @@ const handleSaveProfile = async () => {
                 {/* Графики */}
                 <motion.div 
                   variants={containerVariants}
-                  className={`p-6 rounded-2xl shadow-xl ${
+                  className={`p-3 rounded-2xl shadow-xl ${
                     darkMode 
                       ? "bg-gray-800/80 backdrop-blur-sm border border-gray-700" 
                       : "bg-white border border-gray-200"
@@ -1185,7 +1185,7 @@ const handleSaveProfile = async () => {
                                   : "text-blue-600 hover:text-blue-800"
                               }`}
                             >
-                              Подробнее
+                            
                             </button>
                             <button 
                               onClick={() => navigator.clipboard.writeText(
@@ -1197,7 +1197,7 @@ const handleSaveProfile = async () => {
                                   : "text-gray-600 hover:text-gray-800"
                               }`}
                             >
-                              Поделиться
+                            
                             </button>
                           </div>
                         </div>

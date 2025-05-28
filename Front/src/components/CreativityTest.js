@@ -6,24 +6,24 @@ import { toast } from "react-toastify";
 
 const CreativityTest = ({ darkMode }) => {
   const location = useLocation();
-  const slug = location.pathname.split("/")[2] || "creativity-test";
+  const slug = location.pathname.split("/")[1]; // e.g., "creativity-test"
   const navigate = useNavigate();
-
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [totalScore, setTotalScore] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultData, setResultData] = useState({
     text: "",
     description: "",
+    percentage: 0,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [testDescription, setTestDescription] = useState("");
 
   const api = axios.create({
     baseURL: "http://localhost:8080",
+    withCredentials: true,
   });
 
   useEffect(() => {
@@ -31,6 +31,7 @@ const CreativityTest = ({ darkMode }) => {
       navigate("/tests");
       return;
     }
+
     const fetchTest = async () => {
       try {
         const response = await api.get(`/tests/${slug}`);
@@ -38,7 +39,7 @@ const CreativityTest = ({ darkMode }) => {
           throw new Error("Test data is empty");
         }
         setTest(response.data.test);
-        setTestDescription(response.data.test.description || "Узнайте, насколько вы креативны!");
+        setTestDescription(response.data.test.description || "");
       } catch (err) {
         console.error("Error:", err.response?.data || err.message);
         setError(err.response?.data?.error || "Не удалось загрузить тест");
@@ -47,16 +48,28 @@ const CreativityTest = ({ darkMode }) => {
         setLoading(false);
       }
     };
+
     fetchTest();
   }, [slug, navigate]);
 
   const questions = test?.questions || [];
 
   const handleAnswerChange = (questionId, value) => {
+    const numericValue = parseInt(value, 10);
+    if (
+      isNaN(numericValue) ||
+      numericValue < 0 ||
+      numericValue >= questions.find((q) => q.id === questionId)?.options.length
+    ) {
+      console.warn(`Invalid answer value for question ${questionId}:`, value);
+      return;
+    }
+
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: value,
+      [questionId]: numericValue,
     }));
+
     setTimeout(() => {
       if (currentQuestion < questions.length - 1) {
         setCurrentQuestion((prev) => prev + 1);
@@ -69,37 +82,59 @@ const CreativityTest = ({ darkMode }) => {
       toast.warning("Пожалуйста, ответьте на все вопросы");
       return;
     }
+
     setIsSubmitting(true);
+
     try {
       if (!test?.scoring_rules) {
         throw new Error("Правила оценки не найдены");
       }
+
       let scoringData = test.scoring_rules;
       if (typeof scoringData === "string") {
         scoringData = JSON.parse(scoringData);
       }
+
       if (!scoringData?.scoring?.ranges) {
         throw new Error("Некорректные правила оценки");
       }
-      let total = 0;
-      Object.values(answers).forEach((answer) => {
-        total += answer;
+
+      // Подсчет баллов
+      let totalScore = 0;
+      questions.forEach((question) => {
+        const userAnswer = answers[question.id];
+        if (userAnswer !== undefined) {
+          // Присваиваем баллы: 0=0, 1=1, 2=2, 3=3
+          totalScore += userAnswer;
+        }
       });
-      const finalScore = total;
+
+      // Конвертация в проценты (макс. баллов = 15 * 3 = 45)
+      const maxScore = questions.length * 3;
+      const percentageScore = Math.round((totalScore / maxScore) * 100);
+
+      console.log(
+        `Total Score: ${totalScore}, Max Score: ${maxScore}, Percentage: ${percentageScore}%`
+      );
+
+      // Находим соответствующий диапазон
       const matchedRange = scoringData.scoring.ranges.find(
-        (range) => finalScore >= (range.min || 0) && finalScore <= range.max
+        (range) => percentageScore >= (range.min || 0) && percentageScore <= range.max
       ) || {};
-      setTotalScore(finalScore);
+
       setResultData({
-        text: matchedRange.text || `Результат: ${finalScore} баллов`,
-        description: matchedRange.description || "Ваши ответы указывают на вашу креативность!",
+        text: matchedRange.text || `Результат: ${percentageScore}%`,
+        description: matchedRange.description || "",
+        percentage: percentageScore,
       });
-      return saveTestResult(finalScore, matchedRange.text);
+
+      return saveTestResult(percentageScore, matchedRange.text);
     } catch (err) {
       console.error("Ошибка расчета:", err);
       setResultData({
         text: "Ошибка расчета",
         description: err.message,
+        percentage: 0,
       });
       toast.error("Ошибка при расчете результата");
       throw err;
@@ -112,27 +147,27 @@ const CreativityTest = ({ darkMode }) => {
     try {
       const payload = {
         test_slug: slug,
-        test_name: test.title || "Тест на креативность",
+        test_name: test.title,
         score: score || 0,
         result_text: resultText || "Результат не определен",
         answers: answers,
-        category: "Креативность",
-        completed_at: new Date().toISOString(),
       };
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Требуется авторизация");
-      }
+
       await api.post("/test-result", payload, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
+
       toast.success("Результат сохранен!");
     } catch (error) {
       console.error("Ошибка сохранения:", error);
-      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      if (error.response?.status === 401) {
+        toast.error("Сессия истекла. Пожалуйста, войдите снова.");
+        navigate("/");
+      } else {
+        toast.error(error.response?.data?.error || "Ошибка сохранения");
+      }
       throw error;
     }
   };
@@ -183,7 +218,7 @@ const CreativityTest = ({ darkMode }) => {
   return (
     <TestLayout
       darkMode={darkMode}
-      title={test.title || "Тест на креативность"}
+      title={test.title}
       description={testDescription}
       currentQuestion={currentQuestion}
       totalQuestions={questions.length}
@@ -198,7 +233,7 @@ const CreativityTest = ({ darkMode }) => {
       onSubmit={calculateScore}
       isSubmitting={isSubmitting}
       canSubmit={Object.keys(answers).length === questions.length}
-      showResults={totalScore !== null}
+      showResults={resultData.text !== ""}
       results={
         <div className="space-y-4">
           <div
@@ -207,25 +242,15 @@ const CreativityTest = ({ darkMode }) => {
             }`}
           >
             <p className="text-xl font-semibold mb-2">{resultData.text}</p>
+            <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+              Ваш уровень креативности: {resultData.percentage}%.
+            </p>
             {resultData.description && (
               <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                 {resultData.description}
               </p>
             )}
           </div>
-          <button
-            onClick={() => {
-              setAnswers({});
-              setCurrentQuestion(0);
-              setTotalScore(null);
-              setResultData({ text: "", description: "" });
-            }}
-            className={`px-4 py-2 rounded-lg mt-4 ${
-              darkMode ? "bg-indigo-600 hover:bg-indigo-700" : "bg-indigo-600 hover:bg-indigo-700"
-            } text-white`}
-          >
-            Пройти снова
-          </button>
         </div>
       }
       onHome={() => navigate("/")}

@@ -4,9 +4,9 @@ import axios from "axios";
 import TestLayout from "./TestLayout.js";
 import { toast } from "react-toastify";
 
-const FlagsTest = ({ darkMode }) => {
+const MindMazeTest = ({ darkMode }) => {
   const location = useLocation();
-  const slug = location.pathname.split("/")[1]; // e.g., "flags-test"
+  const slug = location.pathname.split("/")[1]; // e.g., "mind-maze-test"
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,6 +20,8 @@ const FlagsTest = ({ darkMode }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testDescription, setTestDescription] = useState("");
+  const [totalScore, setTotalScore] = useState(0); // New state for totalScore
+  const [maxScore, setMaxScore] = useState(0); // New state for maxScore
 
   const api = axios.create({
     baseURL: "http://localhost:8080",
@@ -35,7 +37,6 @@ const FlagsTest = ({ darkMode }) => {
     const fetchTest = async () => {
       try {
         const response = await api.get(`/tests/${slug}`);
-        console.log("API Response:", response.data); // Для отладки
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
@@ -56,9 +57,12 @@ const FlagsTest = ({ darkMode }) => {
   const questions = test?.questions || [];
 
   const handleAnswerChange = (questionId, value) => {
-    // Преобразуем value в число (индекс варианта ответа)
     const numericValue = parseInt(value, 10);
-    if (isNaN(numericValue) || numericValue < 0 || numericValue >= questions.find(q => q.id === questionId)?.options.length) {
+    if (
+      isNaN(numericValue) ||
+      numericValue < 0 ||
+      numericValue >= questions.find((q) => q.id === questionId)?.options.length
+    ) {
       console.warn(`Invalid answer value for question ${questionId}:`, value);
       return;
     }
@@ -97,30 +101,46 @@ const FlagsTest = ({ darkMode }) => {
         throw new Error("Некорректные правила оценки");
       }
 
-      // Подсчет правильных ответов
-      let correctAnswers = 0;
+      // Подсчет баллов
+      let score = 0;
       questions.forEach((question) => {
         const userAnswer = answers[question.id];
-        if (userAnswer !== undefined && userAnswer === question.answer) {
-          correctAnswers += 1;
+        if (userAnswer !== undefined) {
+          // Присваиваем 1 балл, если ответ совпадает с correct
+          score += userAnswer === question.correct ? 1 : 0;
         }
-        console.log(`Question ${question.id}: User Answer = ${userAnswer}, Correct Answer = ${question.answer}`); // Логирование
       });
 
-      // Конвертация в проценты
-      const totalQuestions = questions.length;
-      const percentageScore = Math.round((correctAnswers / totalQuestions) * 100);
+      // Конвертация в проценты (макс. баллов = 12)
+      const maxPossibleScore = questions.length;
+      const percentageScore = Math.round((score / maxPossibleScore) * 100);
 
-      console.log(`Correct Answers: ${correctAnswers}, Total Questions: ${totalQuestions}, Percentage: ${percentageScore}%`);
+      console.log(
+        `Total Score: ${score}, Max Score: ${maxPossibleScore}, Percentage: ${percentageScore}%`
+      );
+
+      // Сохраняем totalScore и maxScore в состояние
+      setTotalScore(score);
+      setMaxScore(maxPossibleScore);
 
       // Находим соответствующий диапазон
       const matchedRange = scoringData.scoring.ranges.find(
         (range) => percentageScore >= (range.min || 0) && percentageScore <= range.max
       ) || {};
 
+      // Добавляем описание для каждого диапазона
+      const description =
+        percentageScore <= 25
+          ? "Лабиринт оказался слишком запутанным, но не сдавайся! Попробуй решать логические задачи, головоломки или шахматы, чтобы развить аналитическое мышление."
+          : percentageScore <= 50
+          ? "Ты начинаешь видеть пути в лабиринте, но некоторые загадки ещё ускользают. Тренируйся с задачами на последовательности и дедукцию, чтобы стать увереннее."
+          : percentageScore <= 75
+          ? "Твоя логика впечатляет! Ты справляешься с большинством задач, но для мастерства попробуй более сложные головоломки, например, задачи на комбинаторику."
+          : "Ты настоящий мастер логики! Твои способности к анализу и решению задач на высоте. Продолжай оттачивать навыки с олимпиадными задачами или программированием.";
+
       setResultData({
         text: matchedRange.text || `Результат: ${percentageScore}%`,
-        description: matchedRange.description || "",
+        description,
         percentage: percentageScore,
       });
 
@@ -188,20 +208,18 @@ const FlagsTest = ({ darkMode }) => {
     return (
       <div
         className={`flex flex-col justify-center items-center h-screen p-4 ${
-          darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
+          darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900"
         }`}
       >
-        <h2 className="text-2xl font-bold mb-4">
+        <h2 className="text-2xl font-semibold mb-4">
           {error ? "Ошибка" : "Тест не найден"}
         </h2>
-        <p className={`mb-6 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-          {error || "Запрошенный тест не существует"}
+        <p className={`mb-4 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+          {error || "Запрошенный тест не существует."}
         </p>
         <button
           onClick={() => navigate("/tests")}
-          className={`px-6 py-3 rounded-lg ${
-            darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
-          } text-white`}
+          className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
         >
           Вернуться к тестам
         </button>
@@ -214,8 +232,8 @@ const FlagsTest = ({ darkMode }) => {
   return (
     <TestLayout
       darkMode={darkMode}
-      title={test.title}
-      description={testDescription}
+      title="Лабиринт Разума"
+      description={testDescription || "Пройди сложный тест на логику и проверь, сможешь ли ты распутать загадки разума!"}
       currentQuestion={currentQuestion}
       totalQuestions={questions.length}
       onPrev={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
@@ -237,12 +255,14 @@ const FlagsTest = ({ darkMode }) => {
               darkMode ? "bg-gray-800" : "bg-blue-50"
             }`}
           >
-            <p className="text-xl font-semibold mb-2">{resultData.text}</p>
-            <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-              Вы ответили правильно на {resultData.percentage}% вопросов.
+            <p className={`text-xl font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}>
+              {resultData.text}
+            </p>
+            <p className={`${darkMode ? "text-gray-200" : "text-gray-700"}`}>
+              Уровень логики: {resultData.percentage}% ({totalScore} из {maxScore} правильных).
             </p>
             {resultData.description && (
-              <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+              <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} mt-2`}>
                 {resultData.description}
               </p>
             )}
@@ -259,4 +279,4 @@ const FlagsTest = ({ darkMode }) => {
   );
 };
 
-export default FlagsTest;
+export default MindMazeTest;

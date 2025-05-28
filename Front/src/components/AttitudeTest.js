@@ -4,9 +4,9 @@ import axios from "axios";
 import TestLayout from "./TestLayout.js";
 import { toast } from "react-toastify";
 
-const FlagsTest = ({ darkMode }) => {
+const AttitudeTest = ({ darkMode }) => {
   const location = useLocation();
-  const slug = location.pathname.split("/")[1]; // e.g., "flags-test"
+  const slug = location.pathname.split("/")[1]; // e.g., "attitude-test"
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,6 @@ const FlagsTest = ({ darkMode }) => {
     const fetchTest = async () => {
       try {
         const response = await api.get(`/tests/${slug}`);
-        console.log("API Response:", response.data); // Для отладки
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
@@ -56,9 +55,12 @@ const FlagsTest = ({ darkMode }) => {
   const questions = test?.questions || [];
 
   const handleAnswerChange = (questionId, value) => {
-    // Преобразуем value в число (индекс варианта ответа)
     const numericValue = parseInt(value, 10);
-    if (isNaN(numericValue) || numericValue < 0 || numericValue >= questions.find(q => q.id === questionId)?.options.length) {
+    if (
+      isNaN(numericValue) ||
+      numericValue < 0 ||
+      numericValue >= questions.find((q) => q.id === questionId)?.options.length
+    ) {
       console.warn(`Invalid answer value for question ${questionId}:`, value);
       return;
     }
@@ -97,30 +99,42 @@ const FlagsTest = ({ darkMode }) => {
         throw new Error("Некорректные правила оценки");
       }
 
-      // Подсчет правильных ответов
-      let correctAnswers = 0;
+      // Подсчет баллов
+      let totalScore = 0;
       questions.forEach((question) => {
         const userAnswer = answers[question.id];
-        if (userAnswer !== undefined && userAnswer === question.answer) {
-          correctAnswers += 1;
+        if (userAnswer !== undefined) {
+          // Присваиваем баллы: 0=0, 1=1, 2=2, 3=3
+          totalScore += userAnswer;
         }
-        console.log(`Question ${question.id}: User Answer = ${userAnswer}, Correct Answer = ${question.answer}`); // Логирование
       });
 
-      // Конвертация в проценты
-      const totalQuestions = questions.length;
-      const percentageScore = Math.round((correctAnswers / totalQuestions) * 100);
+      // Конвертация в проценты (макс. баллов = 15 * 3 = 45)
+      const maxScore = questions.length * 3;
+      const percentageScore = Math.round((totalScore / maxScore) * 100);
 
-      console.log(`Correct Answers: ${correctAnswers}, Total Questions: ${totalQuestions}, Percentage: ${percentageScore}%`);
+      console.log(
+        `Total Score: ${totalScore}, Max Score: ${maxScore}, Percentage: ${percentageScore}%`
+      );
 
       // Находим соответствующий диапазон
       const matchedRange = scoringData.scoring.ranges.find(
         (range) => percentageScore >= (range.min || 0) && percentageScore <= range.max
       ) || {};
 
+      // Добавляем рекомендацию для низкого результата
+      const description =
+        percentageScore <= 25
+          ? "Ваши отношения находятся в зоне риска. Рекомендуем открыто обсудить проблемы с партнёром или обратиться к семейному психологу для восстановления связи."
+          : percentageScore <= 50
+          ? "Ваши отношения имеют потенциал, но требуют работы. Попробуйте больше общаться и решать накопившиеся вопросы вместе."
+          : percentageScore <= 75
+          ? "У вас крепкие отношения, но есть куда расти. Уделяйте внимание мелочам, чтобы избежать рутины."
+          : "Ваши отношения — пример гармонии. Продолжайте поддерживать доверие и близость!";
+
       setResultData({
         text: matchedRange.text || `Результат: ${percentageScore}%`,
-        description: matchedRange.description || "",
+        description,
         percentage: percentageScore,
       });
 
@@ -199,9 +213,7 @@ const FlagsTest = ({ darkMode }) => {
         </p>
         <button
           onClick={() => navigate("/tests")}
-          className={`px-6 py-3 rounded-lg ${
-            darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"
-          } text-white`}
+          className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
         >
           Вернуться к тестам
         </button>
@@ -215,7 +227,7 @@ const FlagsTest = ({ darkMode }) => {
     <TestLayout
       darkMode={darkMode}
       title={test.title}
-      description={testDescription}
+      description={testDescription || "Оцените прочность ваших отношений с партнёром."}
       currentQuestion={currentQuestion}
       totalQuestions={questions.length}
       onPrev={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
@@ -237,12 +249,14 @@ const FlagsTest = ({ darkMode }) => {
               darkMode ? "bg-gray-800" : "bg-blue-50"
             }`}
           >
-            <p className="text-xl font-semibold mb-2">{resultData.text}</p>
+            <p className={`text-xl font-semibold mb-2 ${darkMode ? "text-white" : "text-black"}`}>
+              {resultData.text}
+            </p>
             <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-              Вы ответили правильно на {resultData.percentage}% вопросов.
+              Прочность ваших отношений: {resultData.percentage}%.
             </p>
             {resultData.description && (
-              <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+              <p className={`${darkMode ? "text-gray-300" : "text-gray-700"} mt-2`}>
                 {resultData.description}
               </p>
             )}
@@ -259,4 +273,4 @@ const FlagsTest = ({ darkMode }) => {
   );
 };
 
-export default FlagsTest;
+export default AttitudeTest;

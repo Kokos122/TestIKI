@@ -13,16 +13,17 @@ const BeckHopelessnessTest = ({ darkMode }) => {
   const [error, setError] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [totalScore, setTotalScore] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultData, setResultData] = useState({
     text: "",
     description: "",
+    percentage: 0,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [testDescription, setTestDescription] = useState("");
 
   const api = axios.create({
     baseURL: "http://localhost:8080",
+    withCredentials: true,
   });
 
   useEffect(() => {
@@ -37,18 +38,6 @@ const BeckHopelessnessTest = ({ darkMode }) => {
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
-        console.log("Fetched test data:", response.data.test); // Debug
-        // Validate questions
-        if (response.data.test.questions.length !== 20) {
-          console.warn(`Expected 20 questions, received ${response.data.test.questions.length}`);
-          toast.warn(`Ожидалось 20 вопросов, получено ${response.data.test.questions.length}`);
-        }
-        response.data.test.questions.forEach((q) => {
-          if (!q.options || q.options.length !== 2 || (q.options[0] !== "0" && q.options[0] !== "Нет") || (q.options[1] !== "1" && q.options[1] !== "Да")) {
-            console.warn(`Некорректные опции для вопроса ${q.id}:`, q.options);
-            toast.warn(`Некорректные опции для вопроса ${q.id}: ${JSON.stringify(q.options)}`);
-          }
-        });
         setTest(response.data.test);
         setTestDescription(response.data.test.description || "");
       } catch (err) {
@@ -66,27 +55,13 @@ const BeckHopelessnessTest = ({ darkMode }) => {
   const questions = test?.questions || [];
 
   const handleAnswerChange = (questionId, value) => {
-    const question = questions.find((q) => q.id === questionId);
-    console.log(
-      "handleAnswerChange - Question ID:",
-      questionId,
-      "Value:",
-      value,
-      "Type:",
-      typeof value,
-      "Question:",
-      question?.text,
-      "Options:",
-      question?.options
-    ); // Enhanced debug
-    let numericValue;
-    if (value === "Yes" || value === "Да" || value === "1" || value === 1) {
-      numericValue = 1;
-    } else if (value === "No" || value === "Нет" || value === "0" || value === 0) {
-      numericValue = 0;
-    } else {
-      console.error("Invalid value received:", value, "for question ID:", questionId, "Question:", question?.text);
-      toast.error(`Недопустимое значение ответа: ${value} для вопроса ${questionId} (${question?.text}). Выберите 'Да' или 'Нет'`);
+    const numericValue = parseInt(value, 10);
+    if (
+      isNaN(numericValue) ||
+      numericValue < 0 ||
+      numericValue >= questions.find((q) => q.id === questionId)?.options.length
+    ) {
+      console.warn(`Invalid answer value for question ${questionId}:`, value);
       return;
     }
 
@@ -124,36 +99,56 @@ const BeckHopelessnessTest = ({ darkMode }) => {
         throw new Error("Некорректные правила оценки");
       }
 
-      let total = 0;
-      Object.entries(answers).forEach(([questionId, answer]) => {
-        if (answer !== 0 && answer !== 1) {
-          throw new Error(`Недопустимое значение ответа для вопроса ${questionId}: ${answer}`);
+      // Позитивные вопросы, где "Да" = 0 баллов, "Нет" = 1 балл
+      const positiveQuestions = [1, 2, 5, 7, 9, 11, 14, 17, 19];
+
+      // Подсчет баллов
+      let totalScore = 0;
+      questions.forEach((question) => {
+        const userAnswer = answers[question.id];
+        if (userAnswer !== undefined) {
+          if (positiveQuestions.includes(question.id)) {
+            // Позитивные вопросы: "Да" (1) = 0, "Нет" (0) = 1
+            totalScore += userAnswer === 1 ? 0 : 1;
+          } else {
+            // Негативные вопросы: "Да" (1) = 1, "Нет" (0) = 0
+            totalScore += userAnswer === 1 ? 1 : 0;
+          }
         }
-        total += answer;
       });
 
-      if (total > 20) {
-        throw new Error("Суммарный балл не может превышать 20");
-      }
+      // Конвертация в проценты (макс. баллов = 20)
+      const maxScore = questions.length;
+      const percentageScore = Math.round((totalScore / maxScore) * 100);
 
-      const finalScore = total;
+      console.log(
+        `Total Score: ${totalScore}, Max Score: ${maxScore}, Percentage: ${percentageScore}%`
+      );
 
+      // Находим соответствующий диапазон
       const matchedRange = scoringData.scoring.ranges.find(
-        (range) => finalScore >= (range.min || 0) && finalScore <= range.max
+        (range) => percentageScore >= (range.min || 0) && percentageScore <= range.max
       ) || {};
 
-      setTotalScore(finalScore);
+      // Добавляем предупреждение для высокого уровня безнадёжности
+      const description =
+        percentageScore >= 76
+          ? "Ваш результат указывает на высокий уровень безнадёжности. Рекомендуем обратиться к психологу или специалисту по психическому здоровью для поддержки."
+          : "";
+
       setResultData({
-        text: matchedRange.text || `Результат: ${finalScore}`,
-        description: matchedRange.description || "",
+        text: matchedRange.text || `Результат: ${percentageScore}%`,
+        description,
+        percentage: percentageScore,
       });
 
-      return saveTestResult(finalScore, matchedRange.text);
+      return saveTestResult(percentageScore, matchedRange.text);
     } catch (err) {
       console.error("Ошибка расчета:", err);
       setResultData({
         text: "Ошибка расчета",
         description: err.message,
+        percentage: 0,
       });
       toast.error("Ошибка при расчете результата");
       throw err;
@@ -172,14 +167,8 @@ const BeckHopelessnessTest = ({ darkMode }) => {
         answers: answers,
       };
 
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Требуется авторизация");
-      }
-
       await api.post("/test-result", payload, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -187,7 +176,12 @@ const BeckHopelessnessTest = ({ darkMode }) => {
       toast.success("Результат сохранен!");
     } catch (error) {
       console.error("Ошибка сохранения:", error);
-      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      if (error.response?.status === 401) {
+        toast.error("Сессия истекла. Пожалуйста, войдите снова.");
+        navigate("/");
+      } else {
+        toast.error(error.response?.data?.error || "Ошибка сохранения");
+      }
       throw error;
     }
   };
@@ -253,7 +247,7 @@ const BeckHopelessnessTest = ({ darkMode }) => {
       onSubmit={calculateScore}
       isSubmitting={isSubmitting}
       canSubmit={Object.keys(answers).length === questions.length}
-      showResults={totalScore !== null}
+      showResults={resultData.text !== ""}
       results={
         <div className="space-y-4">
           <div
@@ -261,9 +255,14 @@ const BeckHopelessnessTest = ({ darkMode }) => {
               darkMode ? "bg-gray-800" : "bg-blue-50"
             }`}
           >
-            <p className="text-xl font-semibold mb-2">{resultData.text}</p>
+            <p className={`text-xl font-semibold mb-2 ${darkMode ? "text-white" : "text-black"}`}>
+              {resultData.text}
+            </p>
+            <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+              Уровень безнадёжности: {resultData.percentage}%.
+            </p>
             {resultData.description && (
-              <p className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+              <p className={`text-red-500 font-medium mt-2 ${darkMode ? "text-red-400" : "text-red-600"}`}>
                 {resultData.description}
               </p>
             )}
