@@ -18,22 +18,26 @@ const TestsPage = ({ darkMode, isAuthenticated }) => {
   useEffect(() => {
     const fetchTests = async () => {
       try {
-        const response = await axios.get('http://localhost:8080/tests');
+        const response = await axios.get("http://localhost:8080/tests", {
+          withCredentials: true, // Добавляем эту строку для передачи куки
+        })
         if (!response.data.tests) {
-          throw new Error('No tests found in response');
+          throw new Error("No tests found in response")
         }
-        setTests(response.data.tests);
+        setTests(response.data.tests)
       } catch (err) {
-        console.error('Error fetching tests:', err);
-        let errorMessage = 'Не удалось загрузить тесты';
+        console.error("Error fetching tests:", err)
+        let errorMessage = "Не удалось загрузить тесты"
         if (err.response?.status === 404) {
-          errorMessage = 'Маршрут /tests не найден на сервере';
+          errorMessage = "Маршрут /tests не найден на сервере"
+        } else if (err.response?.status === 401) {
+          errorMessage = "Необходима авторизация для просмотра тестов"
         } else if (err.response?.data?.error) {
-          errorMessage = err.response.data.error;
+          errorMessage = err.response.data.error
         } else {
-          errorMessage += `: ${err.message}`;
+          errorMessage += `: ${err.message}`
         }
-        setError(errorMessage);
+        setError(errorMessage)
         toast.error(errorMessage, {
           position: "top-center",
           autoClose: 5000,
@@ -42,12 +46,12 @@ const TestsPage = ({ darkMode, isAuthenticated }) => {
           pauseOnHover: true,
           draggable: true,
           progress: undefined,
-          theme: darkMode ? 'dark' : 'light',
-        });
+          theme: darkMode ? "dark" : "light",
+        })
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
     fetchTests();
   }, [darkMode]);
 

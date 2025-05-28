@@ -42,7 +42,6 @@ type TestResultRequest struct {
 
 type UpdateProfileRequest struct {
 	Username string `json:"username" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
 }
 type ForgotPasswordRequest struct {
 	Email string `json:"email" binding:"required,email"`
@@ -311,7 +310,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("token", token, 24*3600, "/", "localhost", false, false)
+	c.SetCookie("token", token, 24*3600, "/", "", false, true) // Убрали "localhost"
 
 	duration := time.Since(start).Seconds()
 	log.Printf("Вход успешен для %s, время: %fs", req.Identifier, duration)
@@ -846,8 +845,6 @@ func GetUserTestResults(c *gin.Context) {
 }
 
 // UpdateProfile handles updating the user's profile
-// UpdateProfile handles updating the user's profile
-// UpdateProfile handles updating the user's profile
 func UpdateProfile(c *gin.Context) {
 	// Get userID from context (set by AuthMiddleware)
 	userID, exists := c.Get("userID")
@@ -886,9 +883,6 @@ func UpdateProfile(c *gin.Context) {
 	if req.Username != "" {
 		user.Username = req.Username
 	}
-	if req.Email != "" {
-		user.Email = req.Email
-	}
 
 	// Save changes to the database
 	if err := database.DB.Save(&user).Error; err != nil {
@@ -905,8 +899,8 @@ func UpdateProfile(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new token"})
 			return
 		}
-		// Set new token in cookie
-		c.SetCookie("token", newToken, 24*3600, "/", "localhost", false, true)
+		// ИСПРАВЛЕННАЯ установка куки
+		c.SetCookie("token", newToken, 24*3600, "/", "", false, true) // Убрал "localhost"
 	}
 
 	// Return updated user data

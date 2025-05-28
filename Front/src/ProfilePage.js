@@ -327,7 +327,6 @@ const handleSaveProfile = async () => {
     try {
         const response = await axios.patch('http://localhost:8080/update-profile', {
             username,
-            email
         }, {
             withCredentials: true
         });
@@ -503,24 +502,7 @@ const handleSaveProfile = async () => {
                         <p className="text-red-500 text-sm mt-1">{usernameError}</p>
                       )}
                     </div>
-                    <div>
-                      <label className={`block text-sm font-medium mb-1 ${
-                        darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}>
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className={`w-full px-4 py-2 rounded-lg ${
-                          darkMode 
-                            ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" 
-                            : "bg-white border-gray-300 text-gray-800 placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
-                        } border focus:outline-none focus:ring-2`}
-                        disabled={isLoading}
-                      />
-                    </div>
+                    
                     <div className="flex space-x-3 pt-2">
                       <button
                           onClick={handleSaveProfile}

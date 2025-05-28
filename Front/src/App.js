@@ -29,8 +29,8 @@ import AttitudeTest from "./components/AttitudeTest.js";
 import NarcissistTest from "./components/NarcissistTest.js";
 import EpworthSleepinessScale from "./components/EpworthSleepinessScale.js";
 import MindMazeTest from "./components/MindMazeTest.js";
-import ResetPasswordPage from "./ResetPasswordPage.js"; //новый файл для сброса пароля
-import EmailVerificationPage from "./EmailVerificationPage.js"; // новый файл для подтверждения пароля
+import ResetPasswordPage from "./ResetPasswordPage.js"; // Оставьте только одну строку
+import EmailVerificationPage from "./EmailVerificationPage.js";
 
 const AppWrapper = () => (
   <Router>
@@ -61,119 +61,130 @@ const App = () => {
   }, [location.pathname]);
 
   const api = axios.create({
-    baseURL: 'http://localhost:8080',
-    withCredentials: true // Включаем отправку куки
-  });
+    baseURL: "http://localhost:8080",
+    withCredentials: true,
+    timeout: 10000,
+  })
 
   api.interceptors.response.use(
-    response => response,
-    error => {
-      // НЕ вызываем handleLogout на публичных страницах
+    (response) => response,
+    (error) => {
       if (error.response?.status === 401 && !isPublicRoute) {
-        handleLogout();
+        console.log("401 error, logging out...")
+        handleLogout()
       }
-      return Promise.reject(error);
-    }
-  );
+      return Promise.reject(error)
+    },
+  )
 
   const verifyAuth = async () => {
     try {
-      const response = await api.get('/me');
-      setIsAuthenticated(true);
+      const response = await api.get("/me")
+      setIsAuthenticated(true)
       setCurrentUser({
         id: response.data.id,
         username: response.data.username,
         email: response.data.email,
-        avatar_url: response.data.avatar_url || '/images/default-avatar.png'
-      });
-      return true;
+        avatar_url: response.data.avatar_url || "/images/default-avatar.png",
+      })
+      return true
     } catch (error) {
-      console.error('Ошибка проверки аутентификации:', error);
-      handleLogout();
-      return false;
+      console.error("Ошибка проверки аутентификации:", error)
+      setIsAuthenticated(false)
+      setCurrentUser({
+        id: null,
+        username: "",
+        email: "",
+        avatar_url: "/images/default-avatar.png",
+      })
+      return false
     }
-  };
+  }
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Пропускаем проверку аутентификации на публичных страницах
       if (isPublicRoute) {
-        setIsLoading(false);
-        return;
+        setIsLoading(false)
+        return
       }
-      
-      await verifyAuth();
-      setIsLoading(false);
-    };
-    checkAuth();
-  }, [isPublicRoute]);
 
-  const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
-  const toggleAuthModal = () => setIsAuthModalOpen(prev => !prev);
-  const closeSidebar = () => setIsSidebarOpen(false);
-  const toggleTheme = () => setDarkMode(prev => !prev);
+      await verifyAuth()
+      setIsLoading(false)
+    }
+    checkAuth()
+  }, [isPublicRoute])
+
+  const toggleSidebar = () => setIsSidebarOpen((prev) => !prev)
+  const toggleAuthModal = () => setIsAuthModalOpen((prev) => !prev)
+  const closeSidebar = () => setIsSidebarOpen(false)
+  const toggleTheme = () => setDarkMode((prev) => !prev)
 
   const handleLoginSuccess = (userData) => {
-    setIsAuthenticated(true);
+    setIsAuthenticated(true)
     setCurrentUser({
       id: userData.id,
       username: userData.username,
       email: userData.email,
-      avatar_url: userData.avatar_url || '/images/default-avatar.png'
-    });
-    setIsAuthModalOpen(false);
-    navigate('/profile');
-  };
+      avatar_url: userData.avatar_url || "/images/default-avatar.png",
+    })
+    setIsAuthModalOpen(false)
+    // НЕ перенаправляем автоматически на профиль
+    navigate("/profile")
+  }
 
   const handleLogout = async () => {
     try {
-      await api.post('/logout');
+      await api.post("/logout")
     } catch (error) {
-      console.error('Ошибка выхода:', error);
+      console.error("Ошибка выхода:", error)
     } finally {
-      setIsAuthenticated(false);
+      setIsAuthenticated(false)
       setCurrentUser({
         id: null,
-        username: '',
-        email: '',
-        avatar_url: '/images/default-avatar.png'
-      });
-      navigate('/');
+        username: "",
+        email: "",
+        avatar_url: "/images/default-avatar.png",
+      })
+      navigate("/")
     }
-  };
+  }
 
   const updateAvatar = (newAvatarUrl) => {
-    setCurrentUser(prev => ({
+    setCurrentUser((prev) => ({
       ...prev,
-      avatar_url: newAvatarUrl
-    }));
-  };
+      avatar_url: newAvatarUrl,
+    }))
+  }
 
   const handleProfileClick = () => {
     if (isAuthenticated) {
-      navigate('/profile');
+      navigate("/profile")
     } else {
-      toggleAuthModal();
+      toggleAuthModal()
     }
-  };
+  }
 
   if (isLoading) {
     return (
-      <div className={`flex justify-center items-center h-screen ${
-        darkMode ? "bg-gray-900" : "bg-gray-50"
-      }`}>
-        <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
-          darkMode ? "border-indigo-400" : "border-indigo-600"
-        }`}></div>
+      <div className={`flex justify-center items-center h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+        <div
+          className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
+            darkMode ? "border-indigo-400" : "border-indigo-600"
+          }`}
+        ></div>
       </div>
-    );
+    )
   }
 
   return (
-    <div className={`min-h-screen flex flex-col transition-colors duration-300
-      ${darkMode ? "bg-gradient-to-br from-violet-500 to-violet-950"
-                  : "bg-gradient-to-br from-neutral-50 to-neutral-100"}`}>
-      
+    <div
+      className={`min-h-screen flex flex-col transition-colors duration-300
+      ${
+        darkMode
+          ? "bg-gradient-to-br from-violet-500 to-violet-950"
+          : "bg-gradient-to-br from-neutral-50 to-neutral-100"
+      }`}
+    >
       <Header
         isAuthenticated={isAuthenticated}
         currentUser={currentUser}
@@ -186,17 +197,17 @@ const App = () => {
 
       <div className="flex-grow">
         <AnimatePresence>
-          {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} darkMode={darkMode} />}
-          {isAuthModalOpen && (
-            <AuthModal
-              onClose={toggleAuthModal}
-              onLoginSuccess={handleLoginSuccess}
-            />
-          )}
+          {isSidebarOpen && <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} darkMode={darkMode} isAuthenticated={isAuthenticated} onAuthModalOpen={toggleAuthModal} />}
+          {isAuthModalOpen && <AuthModal onClose={toggleAuthModal} onLoginSuccess={handleLoginSuccess} />}
         </AnimatePresence>
 
         <Routes>
-          <Route path="/" element={<HomePage darkMode={darkMode} />} />
+          <Route
+            path="/"
+            element={
+              <HomePage darkMode={darkMode} isAuthenticated={isAuthenticated} onAuthModalOpen={toggleAuthModal} />
+            }
+          />
           <Route path="/about" element={<About_Us darkMode={darkMode} />} />
           <Route path="/reset-password" element={<ResetPasswordPage darkMode={darkMode} />} />
           <Route path="/verify-email" element={<EmailVerificationPage darkMode={darkMode} />} />
@@ -204,15 +215,17 @@ const App = () => {
           <Route
             path="/profile"
             element={
-              isAuthenticated ? 
-                <ProfilePage 
-                  user={currentUser} 
-                  darkMode={darkMode} 
+              isAuthenticated ? (
+                <ProfilePage
+                  user={currentUser}
+                  darkMode={darkMode}
                   onAvatarUpdate={updateAvatar}
                   onLogout={handleLogout}
                   onLoginSuccess={handleLoginSuccess}
-                /> : 
+                />
+              ) : (
                 <Navigate to="/" />
+              )
             }
           />
           <Route
@@ -227,30 +240,77 @@ const App = () => {
               />
             }
           />
-          <Route path="/anxiety-test" element={<AnxietyTest darkMode={darkMode} />} />
-          <Route path="/love-test" element={<LoveTest darkMode={darkMode} />} />
-          <Route path="/career-test" element={<CareerTest darkMode={darkMode} />} />
-          <Route path="/logic-test" element={<LogicTest darkMode={darkMode} />} />
-          <Route path="/creativity-test" element={<CreativityTest darkMode={darkMode} />} />
-          <Route path="/flags-test" element={<FlagsTest darkMode={darkMode} />} />
-          <Route path="/dune-test" element={<DuneTest darkMode={darkMode} />} />
-          <Route path="/memory-test" element={<MemoryTest darkMode={darkMode} />} />
-          <Route path="/walking-dead-test" element={<WalkingDeadTest darkMode={darkMode} />} />
-          <Route path="/smeshariki-test" element={<SmesharikiTest darkMode={darkMode} />} />
-          <Route path="/wurs-25" element={<WursTest darkMode={darkMode} />} />
-          <Route path="/beck-hopelessness-test" element={<BeckHopelessnessTest darkMode={darkMode} />} />
-          <Route path="/intuition-test" element={<IntuitionTest darkMode={darkMode} />} />
-          <Route path="/becks-anxiety-scale" element={<BecksAnxietyScale darkMode={darkMode} />} />
-          <Route path="/attitude-test" element={<AttitudeTest darkMode={darkMode} />} />
-          <Route path="/narcissist-test" element={<NarcissistTest darkMode={darkMode} />} />
-          <Route path="/epworth-sleepiness-scale" element={<EpworthSleepinessScale darkMode={darkMode} />} />
-          <Route path="/mind-maze-test" element={<MindMazeTest darkMode={darkMode} />} />
+
+          {/* Защищенные маршруты тестов */}
+          <Route
+            path="/anxiety-test"
+            element={isAuthenticated ? <AnxietyTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route path="/love-test" element={isAuthenticated ? <LoveTest darkMode={darkMode} /> : <Navigate to="/" />} />
+          <Route
+            path="/career-test"
+            element={isAuthenticated ? <CareerTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/logic-test"
+            element={isAuthenticated ? <LogicTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/creativity-test"
+            element={isAuthenticated ? <CreativityTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/flags-test"
+            element={isAuthenticated ? <FlagsTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route path="/dune-test" element={isAuthenticated ? <DuneTest darkMode={darkMode} /> : <Navigate to="/" />} />
+          <Route
+            path="/memory-test"
+            element={isAuthenticated ? <MemoryTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/walking-dead-test"
+            element={isAuthenticated ? <WalkingDeadTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/smeshariki-test"
+            element={isAuthenticated ? <SmesharikiTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route path="/wurs-25" element={isAuthenticated ? <WursTest darkMode={darkMode} /> : <Navigate to="/" />} />
+          <Route
+            path="/beck-hopelessness-test"
+            element={isAuthenticated ? <BeckHopelessnessTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/intuition-test"
+            element={isAuthenticated ? <IntuitionTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/becks-anxiety-scale"
+            element={isAuthenticated ? <BecksAnxietyScale darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/attitude-test"
+            element={isAuthenticated ? <AttitudeTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/narcissist-test"
+            element={isAuthenticated ? <NarcissistTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/epworth-sleepiness-scale"
+            element={isAuthenticated ? <EpworthSleepinessScale darkMode={darkMode} /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/mind-maze-test"
+            element={isAuthenticated ? <MindMazeTest darkMode={darkMode} /> : <Navigate to="/" />}
+          />
         </Routes>
       </div>
 
       <Footer darkMode={darkMode} />
     </div>
-  );
-};
+  )
+}
 
 export default AppWrapper;

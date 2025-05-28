@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/ulule/limiter/v3"
-	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin" // Use the correct import for ulule/limiter
+	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"go.uber.org/zap"
 )
@@ -90,6 +90,7 @@ func main() {
 		)
 	})
 
+	// ИСПРАВЛЕННЫЕ CORS настройки
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000", "https://test-iki.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -100,13 +101,12 @@ func main() {
 	}))
 
 	// Настройка rate limiting
-	rate, err := limiter.NewRateFromFormatted("10-M") // 5 requests per minute
+	rate, err := limiter.NewRateFromFormatted("10-M")
 	if err != nil {
 		log.Fatalf("Failed to parse rate: %v", err)
 	}
 	store := memory.NewStore()
 	limiterInstance := limiter.New(store, rate)
-	// Customize the error response for rate limit exceeded
 	limiterMiddleware := mgin.NewMiddleware(limiterInstance, mgin.WithErrorHandler(func(c *gin.Context, err error) {
 		logger.Info("Rate limit exceeded",
 			zap.String("ip", c.ClientIP()),
@@ -121,14 +121,11 @@ func main() {
 	router.POST("/register", handlers.Register)
 	router.POST("/login", limiterMiddleware, handlers.Login)
 	router.POST("/logout", handlers.Logout)
-	// НОВЫЕ маршруты для восстановления пароля и верификации email
 	router.POST("/auth/forgot-password", handlers.ForgotPassword)
 	router.POST("/auth/reset-password", handlers.ResetPassword)
 	router.POST("/auth/verify-email", handlers.VerifyEmail)
 	router.POST("/auth/resend-verification", handlers.ResendVerification)
 
-	router.GET("/tests/:slug", handlers.GetTest)
-	router.GET("/tests", handlers.GetTests)
 	// Защищенные маршруты
 	authGroup := router.Group("/")
 	authGroup.Use(AuthMiddleware())
@@ -140,6 +137,10 @@ func main() {
 		authGroup.DELETE("/avatar", handlers.DeleteAvatar)
 		authGroup.GET("/user/test-results", handlers.GetUserTestResults)
 		authGroup.PATCH("/update-profile", handlers.UpdateProfile)
+
+		// ПЕРЕМЕЩЕННЫЕ маршруты тестов в защищенную группу
+		authGroup.GET("/tests/:slug", handlers.GetTest)
+		authGroup.GET("/tests", handlers.GetTests)
 	}
 
 	port := os.Getenv("PORT")
