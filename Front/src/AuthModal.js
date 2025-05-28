@@ -23,7 +23,9 @@ const AuthModal = ({ onClose, onLoginSuccess }) => {
   const recaptchaRef = useRef(null); // Declare recaptchaRef
 
   const api = axios.create({
-    baseURL: "http://localhost:8080",
+    baseURL: typeof window !== "undefined" && window.location.hostname !== "localhost" 
+  ? "https://testiki-33ur.onrender.com" 
+  : "http://localhost:8080",
     withCredentials: true,
   });
 
