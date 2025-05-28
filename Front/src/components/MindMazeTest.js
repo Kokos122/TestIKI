@@ -1,3 +1,4 @@
+import api from '../api.js';
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -24,9 +25,12 @@ const MindMazeTest = ({ darkMode }) => {
   const [maxScore, setMaxScore] = useState(0); // New state for maxScore
 
   const api = axios.create({
-    baseURL: "http://localhost:8080",
+    baseURL: typeof window !== "undefined" && window.location.hostname !== "localhost" 
+  ? "https://testiki-33ur.onrender.com" 
+  : "http://localhost:8080",
     withCredentials: true,
-  });
+    timeout: 10000,
+  })
 
   useEffect(() => {
     if (!slug) {

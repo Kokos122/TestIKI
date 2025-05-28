@@ -1,3 +1,4 @@
+import api from './api.js';
 import React, { useState, useEffect, useRef } from "react"; // Ensure useRef is imported
 import { FaGoogle } from "react-icons/fa";
 import { SlSocialVkontakte } from "react-icons/sl";
