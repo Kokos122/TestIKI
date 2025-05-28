@@ -4,25 +4,25 @@ import axios from "axios";
 import TestLayout from "./TestLayout.js";
 import { toast } from "react-toastify";
 
-const ADHDTest = ({ darkMode }) => {
+const WursTest = ({ darkMode }) => {
   const location = useLocation();
-  const slug = location.pathname.split("/")[1]; // e.g., "adhd-test"
+  const slug = location.pathname.split("/")[1]; // e.g., "wurs-test"
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [totalScore, setTotalScore] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultData, setResultData] = useState({
     text: "",
     description: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [testDescription, setTestDescription] = useState("");
 
   const api = axios.create({
     baseURL: "http://localhost:8080",
+    withCredentials: true,
   });
 
   useEffect(() => {
@@ -34,6 +34,7 @@ const ADHDTest = ({ darkMode }) => {
     const fetchTest = async () => {
       try {
         const response = await api.get(`/tests/${slug}`);
+        console.log("API response:", response.data); // Для отладки
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
@@ -54,9 +55,11 @@ const ADHDTest = ({ darkMode }) => {
   const questions = test?.questions || [];
 
   const handleAnswerChange = (questionId, value) => {
+    // Преобразуем строковый ответ в число, так как options в базе — строки ["0", "1", "2", "3", "4"]
+    const numericValue = parseInt(value, 10);
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: parseInt(value), // Ensure value is a number
+      [questionId]: numericValue,
     }));
 
     setTimeout(() => {
@@ -84,30 +87,33 @@ const ADHDTest = ({ darkMode }) => {
         scoringData = JSON.parse(scoringData);
       }
 
-      if (!scoringData?.scoring?.ranges) {
+      if (!scoringData?.scoring?.ranges || !scoringData?.scoring?.options) {
         throw new Error("Некорректные правила оценки");
       }
 
-      // Calculate total score by summing answers
+      // Рассчитываем максимально возможный балл
+      const maxScore = questions.length * Math.max(...scoringData.scoring.options);
+
+      // Подсчет сырых баллов
       let total = 0;
       Object.values(answers).forEach((answer) => {
         total += answer;
       });
 
-      const finalScore = total;
+      // Конвертация в проценты
+      const percentageScore = Math.round((total / maxScore) * 100);
 
-      // Find matching range based on score
+      // Находим соответствующий диапазон
       const matchedRange = scoringData.scoring.ranges.find(
-        (range) => finalScore >= (range.min || 0) && finalScore <= range.max
+        (range) => percentageScore >= (range.min || 0) && percentageScore <= range.max
       ) || {};
 
-      setTotalScore(finalScore);
       setResultData({
-        text: matchedRange.text || `Результат: ${finalScore}`,
+        text: matchedRange.text || `Результат: ${percentageScore}%`,
         description: matchedRange.description || "",
       });
 
-      return saveTestResult(finalScore, matchedRange.text);
+      return saveTestResult(percentageScore, matchedRange.text);
     } catch (err) {
       console.error("Ошибка расчета:", err);
       setResultData({
@@ -131,14 +137,8 @@ const ADHDTest = ({ darkMode }) => {
         answers: answers,
       };
 
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Требуется авторизация");
-      }
-
       await api.post("/test-result", payload, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -146,7 +146,12 @@ const ADHDTest = ({ darkMode }) => {
       toast.success("Результат сохранен!");
     } catch (error) {
       console.error("Ошибка сохранения:", error);
-      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      if (error.response?.status === 401) {
+        toast.error("Сессия истекла. Пожалуйста, войдите снова.");
+        navigate("/");
+      } else {
+        toast.error(error.response?.data?.error || "Ошибка сохранения");
+      }
       throw error;
     }
   };
@@ -212,7 +217,7 @@ const ADHDTest = ({ darkMode }) => {
       onSubmit={calculateScore}
       isSubmitting={isSubmitting}
       canSubmit={Object.keys(answers).length === questions.length}
-      showResults={totalScore !== null}
+      showResults={resultData.text !== ""}
       results={
         <div className="space-y-4">
           <div
@@ -239,4 +244,4 @@ const ADHDTest = ({ darkMode }) => {
   );
 };
 
-export default ADHDTest;
+export default WursTest;

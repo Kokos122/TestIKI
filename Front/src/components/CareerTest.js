@@ -6,23 +6,23 @@ import { toast } from "react-toastify";
 
 const CareerTest = ({ darkMode }) => {
   const location = useLocation();
-  const slug = location.pathname.split("/")[2] || "career-test";
+  const slug = location.pathname.split("/")[1]; // e.g., "career-test"
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [totalScore, setTotalScore] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultData, setResultData] = useState({
     text: "",
     description: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [testDescription, setTestDescription] = useState("");
 
   const api = axios.create({
     baseURL: "http://localhost:8080",
+    withCredentials: true,
   });
 
   useEffect(() => {
@@ -34,11 +34,12 @@ const CareerTest = ({ darkMode }) => {
     const fetchTest = async () => {
       try {
         const response = await api.get(`/tests/${slug}`);
+        console.log("API response:", response.data); // Для отладки
         if (!response.data.test) {
           throw new Error("Test data is empty");
         }
         setTest(response.data.test);
-        setTestDescription(response.data.test.description || "Узнайте, какая карьера вам подходит!");
+        setTestDescription(response.data.test.description || "");
       } catch (err) {
         console.error("Error:", err.response?.data || err.message);
         setError(err.response?.data?.error || "Не удалось загрузить тест");
@@ -84,28 +85,33 @@ const CareerTest = ({ darkMode }) => {
         scoringData = JSON.parse(scoringData);
       }
 
-      if (!scoringData?.scoring?.ranges) {
+      if (!scoringData?.scoring?.ranges || !scoringData?.scoring?.options) {
         throw new Error("Некорректные правила оценки");
       }
 
+      // Рассчитываем максимально возможный балл
+      const maxScore = questions.length * Math.max(...scoringData.scoring.options);
+
+      // Подсчет сырых баллов
       let total = 0;
       Object.values(answers).forEach((answer) => {
         total += answer;
       });
 
-      const finalScore = total;
+      // Конвертация в проценты
+      const percentageScore = Math.round((total / maxScore) * 100);
 
+      // Находим соответствующий диапазон
       const matchedRange = scoringData.scoring.ranges.find(
-        (range) => finalScore >= (range.min || 0) && finalScore <= range.max
+        (range) => percentageScore >= (range.min || 0) && percentageScore <= range.max
       ) || {};
 
-      setTotalScore(finalScore);
       setResultData({
-        text: matchedRange.text || `Результат: ${finalScore} баллов`,
-        description: matchedRange.description || "Ваши ответы указывают на уникальный набор интересов!",
+        text: matchedRange.text || `Результат: ${percentageScore}%`,
+        description: matchedRange.description || "",
       });
 
-      return saveTestResult(finalScore, matchedRange.text);
+      return saveTestResult(percentageScore, matchedRange.text);
     } catch (err) {
       console.error("Ошибка расчета:", err);
       setResultData({
@@ -123,22 +129,14 @@ const CareerTest = ({ darkMode }) => {
     try {
       const payload = {
         test_slug: slug,
-        test_name: test.title || "Тест на карьерные предпочтения",
+        test_name: test.title,
         score: score || 0,
         result_text: resultText || "Результат не определен",
         answers: answers,
-        category: "Карьера",
-        completed_at: new Date().toISOString(),
       };
-
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Требуется авторизация");
-      }
 
       await api.post("/test-result", payload, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -146,7 +144,12 @@ const CareerTest = ({ darkMode }) => {
       toast.success("Результат сохранен!");
     } catch (error) {
       console.error("Ошибка сохранения:", error);
-      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      if (error.response?.status === 401) {
+        toast.error("Сессия истекла. Пожалуйста, войдите снова.");
+        navigate("/");
+      } else {
+        toast.error(error.response?.data?.error || "Ошибка сохранения");
+      }
       throw error;
     }
   };
@@ -197,7 +200,7 @@ const CareerTest = ({ darkMode }) => {
   return (
     <TestLayout
       darkMode={darkMode}
-      title={test.title || "Тест на карьерные предпочтения"}
+      title={test.title}
       description={testDescription}
       currentQuestion={currentQuestion}
       totalQuestions={questions.length}
@@ -212,7 +215,7 @@ const CareerTest = ({ darkMode }) => {
       onSubmit={calculateScore}
       isSubmitting={isSubmitting}
       canSubmit={Object.keys(answers).length === questions.length}
-      showResults={totalScore !== null}
+      showResults={resultData.text !== ""}
       results={
         <div className="space-y-4">
           <div
@@ -227,19 +230,6 @@ const CareerTest = ({ darkMode }) => {
               </p>
             )}
           </div>
-          <button
-            onClick={() => {
-              setAnswers({});
-              setCurrentQuestion(0);
-              setTotalScore(null);
-              setResultData({ text: "", description: "" });
-            }}
-            className={`px-4 py-2 rounded-lg mt-4 ${
-              darkMode ? "bg-indigo-600 hover:bg-indigo-700" : "bg-indigo-600 hover:bg-indigo-700"
-            } text-white`}
-          >
-            Пройти снова
-          </button>
         </div>
       }
       onHome={() => navigate("/")}

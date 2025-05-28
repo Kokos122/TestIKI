@@ -23,7 +23,9 @@ const AnxietyTest = ({ darkMode }) => {
 
   const api = axios.create({
     baseURL: "http://localhost:8080",
+    withCredentials: true,
   });
+
 
   useEffect(() => {
     if (!slug) {
@@ -67,77 +69,78 @@ const AnxietyTest = ({ darkMode }) => {
   };
 
   const calculateScore = () => {
-    if (Object.keys(answers).length !== questions.length) {
-      toast.warning("Пожалуйста, ответьте на все вопросы");
-      return;
+  if (Object.keys(answers).length !== questions.length) {
+    toast.warning("Пожалуйста, ответьте на все вопросы");
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    if (!test?.scoring_rules) {
+      throw new Error("Правила оценки не найдены");
     }
 
-    setIsSubmitting(true);
-
-    try {
-      if (!test?.scoring_rules) {
-        throw new Error("Правила оценки не найдены");
-      }
-
-      let scoringData = test.scoring_rules;
-      if (typeof scoringData === "string") {
-        scoringData = JSON.parse(scoringData);
-      }
-
-      if (!scoringData?.scoring?.ranges) {
-        throw new Error("Некорректные правила оценки");
-      }
-
-      // Подсчет баллов: суммируем значения ответов
-      let total = 0;
-      Object.values(answers).forEach((answer) => {
-        total += answer; // Предполагается, что answer - это числовое значение
-      });
-
-      const finalScore = total;
-
-      const matchedRange = scoringData.scoring.ranges.find(
-        (range) => finalScore >= (range.min || 0) && finalScore <= range.max
-      ) || {};
-
-      setTotalScore(finalScore);
-      setResultData({
-        text: matchedRange.text || `Результат: ${finalScore}`,
-        description: matchedRange.description || "",
-      });
-
-      return saveTestResult(finalScore, matchedRange.text);
-    } catch (err) {
-      console.error("Ошибка расчета:", err);
-      setResultData({
-        text: "Ошибка расчета",
-        description: err.message,
-      });
-      toast.error("Ошибка при расчете результата");
-      throw err;
-    } finally {
-      setIsSubmitting(false);
+    let scoringData = test.scoring_rules;
+    if (typeof scoringData === "string") {
+      scoringData = JSON.parse(scoringData);
     }
-  };
+
+    if (!scoringData?.scoring?.ranges) {
+      throw new Error("Некорректные правила оценки");
+    }
+
+    // 1. Находим максимально возможный балл
+    const maxScore = questions.length * 
+      Math.max(...currentQuestionData.options.map((_, i) => i + 1));
+
+    // 2. Подсчет сырых баллов
+    let total = 0;
+    Object.values(answers).forEach((answer) => {
+      total += answer;
+    });
+
+    // 3. Конвертация в проценты
+    const percentageScore = Math.round((total / maxScore) * 100);
+
+    // 4. Находим соответствующую интерпретацию
+    const matchedRange = scoringData.scoring.ranges.find(
+      (range) => percentageScore >= (range.min || 0) && percentageScore <= range.max
+    ) || {};
+
+    setTotalScore(percentageScore); // Теперь храним проценты
+    setResultData({
+      text: matchedRange.text || `Результат: ${percentageScore}%`,
+      description: matchedRange.description || "",
+    });
+
+    return saveTestResult(percentageScore, matchedRange.text);
+  } catch (err) {
+    console.error("Ошибка расчета:", err);
+    setResultData({
+      text: "Ошибка расчета",
+      description: err.message,
+    });
+    toast.error("Ошибка при расчете результата");
+    throw err;
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const saveTestResult = async (score, resultText) => {
     try {
       const payload = {
-        test_slug: slug, // Используем slug вместо test_id
+        test_slug: slug,
         test_name: test.title,
         score: score || 0,
         result_text: resultText || "Результат не определен",
         answers: answers,
       };
 
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Требуется авторизация");
-      }
-
+      // Упрощенный запрос - куки отправляются автоматически
       await api.post("/test-result", payload, {
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -145,7 +148,15 @@ const AnxietyTest = ({ darkMode }) => {
       toast.success("Результат сохранен!");
     } catch (error) {
       console.error("Ошибка сохранения:", error);
-      toast.error(error.response?.data?.error || "Ошибка сохранения");
+      
+      // Улучшенная обработка ошибок
+      if (error.response?.status === 401) {
+        toast.error("Сессия истекла. Пожалуйста, войдите снова.");
+        // Можно перенаправить на страницу входа
+        // navigate('/login');
+      } else {
+        toast.error(error.response?.data?.error || "Ошибка сохранения");
+      }
       throw error;
     }
   };
