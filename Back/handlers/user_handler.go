@@ -61,7 +61,7 @@ type ResendVerificationRequest struct {
 
 func validatePassword(password string) error {
 	if len(password) < 8 {
-		return errors.New("password must be at least 8 characters")
+		return errors.New("пароль должен содержать не менее 8 символов")
 	}
 
 	var (
@@ -85,7 +85,7 @@ func validatePassword(password string) error {
 	}
 
 	if !hasUpper || !hasLower || !hasNumber || !hasSpecial {
-		return errors.New("password must contain uppercase, lowercase, number, and special character")
+		return errors.New("пароль должен содержать заглавные и строчные буквы, цифру и специальный символ")
 	}
 	return nil
 }
