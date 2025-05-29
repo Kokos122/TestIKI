@@ -217,126 +217,124 @@ func Register(c *gin.Context) {
 	})
 }
 
-
-
 func Login(c *gin.Context) {
-    start := time.Now()
-    log.Println("Начало обработки запроса на вход")
+	start := time.Now()
+	log.Println("Начало обработки запроса на вход")
 
-    var req LoginRequest
-    if err := c.ShouldBindJSON(&req); err != nil {
-        log.Printf("Ошибка привязки запроса: %v", err)
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат запроса"})
-        return
-    }
+	var req LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Ошибка привязки запроса: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат запроса"})
+		return
+	}
 
-    var user database.User
-    if err := database.DB.Where("username = ? OR email = ?", req.Identifier, req.Identifier).First(&user).Error; err != nil {
-        if errors.Is(err, gorm.ErrRecordNotFound) {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный логин или пароль"})
-        } else {
-            log.Printf("Ошибка базы данных: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
-        }
-        return
-    }
+	var user database.User
+	if err := database.DB.Where("username = ? OR email = ?", req.Identifier, req.Identifier).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный логин или пароль"})
+		} else {
+			log.Printf("Ошибка базы данных: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
+		}
+		return
+	}
 
-    if user.LockUntil != nil && time.Now().Before(*user.LockUntil) {
-        c.JSON(http.StatusForbidden, gin.H{"error": "Аккаунт заблокирован, попробуйте позже"})
-        return
-    }
+	if user.LockUntil != nil && time.Now().Before(*user.LockUntil) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Аккаунт заблокирован, попробуйте позже"})
+		return
+	}
 
-    if user.LoginAttempts >= 3 {
-        if req.CaptchaToken == "" {
-            log.Printf("Требуется токен CAPTCHA для %s", req.Identifier)
-            c.JSON(http.StatusBadRequest, gin.H{
-                "error":            "Требуется проверка CAPTCHA",
-                "captcha_required": true,
-            })
-            return
-        }
-        valid, err := VerifyCaptcha(req.CaptchaToken)
-        if err != nil || !valid {
-            log.Printf("Неверная CAPTCHA для %s: %v", req.Identifier, err)
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверная CAPTCHA"})
-            return
-        }
-        user.LoginAttempts = 0
-        user.LockUntil = nil
-        if err := database.DB.Save(&user).Error; err != nil {
-            log.Printf("Ошибка базы данных при сбросе попыток: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось сбросить попытки входа"})
-            return
-        }
-    }
+	if user.LoginAttempts >= 3 {
+		if req.CaptchaToken == "" {
+			log.Printf("Требуется токен CAPTCHA для %s", req.Identifier)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":            "Требуется проверка CAPTCHA",
+				"captcha_required": true,
+			})
+			return
+		}
+		valid, err := VerifyCaptcha(req.CaptchaToken)
+		if err != nil || !valid {
+			log.Printf("Неверная CAPTCHA для %s: %v", req.Identifier, err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверная CAPTCHA"})
+			return
+		}
+		user.LoginAttempts = 0
+		user.LockUntil = nil
+		if err := database.DB.Save(&user).Error; err != nil {
+			log.Printf("Ошибка базы данных при сбросе попыток: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось сбросить попытки входа"})
+			return
+		}
+	}
 
-    if err := user.CheckPassword(req.Password); err != nil {
-        user.LoginAttempts++
-        if user.LoginAttempts >= 5 {
-            lockUntil := time.Now().Add(15 * time.Minute)
-            user.LockUntil = &lockUntil
-            user.LoginAttempts = 0
-        }
-        if err := database.DB.Save(&user).Error; err != nil {
-            log.Printf("Ошибка базы данных: %v", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
-        }
-        c.JSON(http.StatusUnauthorized, gin.H{
-            "error":            "Неверный логин или пароль",
-            "captcha_required": user.LoginAttempts >= 3,
-        })
-        return
-    }
+	if err := user.CheckPassword(req.Password); err != nil {
+		user.LoginAttempts++
+		if user.LoginAttempts >= 5 {
+			lockUntil := time.Now().Add(15 * time.Minute)
+			user.LockUntil = &lockUntil
+			user.LoginAttempts = 0
+		}
+		if err := database.DB.Save(&user).Error; err != nil {
+			log.Printf("Ошибка базы данных: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
+		}
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":            "Неверный логин или пароль",
+			"captcha_required": user.LoginAttempts >= 3,
+		})
+		return
+	}
 
-    if !user.IsVerified {
-        log.Printf("Попытка входа с неподтвержденным email: %s", user.Email)
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "EMAIL_NOT_VERIFIED"})
-        return
-    }
+	if !user.IsVerified {
+		log.Printf("Попытка входа с неподтвержденным email: %s", user.Email)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "EMAIL_NOT_VERIFIED"})
+		return
+	}
 
-    user.LoginAttempts = 0
-    user.LockUntil = nil
-    if err := database.DB.Save(&user).Error; err != nil {
-        log.Printf("Ошибка базы данных: %v", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
-        return
-    }
+	user.LoginAttempts = 0
+	user.LockUntil = nil
+	if err := database.DB.Save(&user).Error; err != nil {
+		log.Printf("Ошибка базы данных: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных"})
+		return
+	}
 
-    token, err := auth.GenerateToken(user.Username)
-    if err != nil {
-        log.Printf("Ошибка генерации токена: %v", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось сгенерировать токен"})
-        return
-    }
+	token, err := auth.GenerateToken(user.Username)
+	if err != nil {
+		log.Printf("Ошибка генерации токена: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не удалось сгенерировать токен"})
+		return
+	}
 
-    domain := ""
-    if os.Getenv("ENV") == "production" {
-        domain = "testiki-33ur.onrender.com"
-    }
-    http.SetCookie(c.Writer, &http.Cookie{
-        Name:     "token",
-        Value:    token,
-        Path:     "/",
-        Domain:   domain,
-        MaxAge:   24 * 3600,
-        Secure:   os.Getenv("ENV") == "production",
-        HttpOnly: true,
-        SameSite: http.SameSiteNoneMode,
-    })
+	domain := ""
+	if os.Getenv("ENV") == "production" {
+		domain = "testiki-33ur.onrender.com"
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		Domain:   domain,
+		MaxAge:   24 * 3600,
+		Secure:   true, // Всегда true для HTTPS
+		HttpOnly: true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
-    duration := time.Since(start).Seconds()
-    log.Printf("Вход успешен для %s, время: %fs", req.Identifier, duration)
+	duration := time.Since(start).Seconds()
+	log.Printf("Вход успешен для %s, время: %fs", req.Identifier, duration)
 
-    c.JSON(http.StatusOK, gin.H{
-        "user": gin.H{
-            "id":          user.ID,
-            "username":    user.Username,
-            "email":       user.Email,
-            "avatar_url":  user.AvatarURL,
-            "is_verified": user.IsVerified,
-        },
-        "token": token,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"user": gin.H{
+			"id":          user.ID,
+			"username":    user.Username,
+			"email":       user.Email,
+			"avatar_url":  user.AvatarURL,
+			"is_verified": user.IsVerified,
+		},
+		"token": token,
+	})
 }
 
 // Остальные функции остаются без изменений
