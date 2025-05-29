@@ -27,7 +27,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Токен не найден в куках"})
 			return
 		}
-
+		log.Println("Received token:", tokenString[:10]+"...")
 		// Валидируем токен
 		claims, err := auth.ValidateToken(tokenString)
 		if err != nil {
@@ -76,6 +76,8 @@ func main() {
 		start := time.Now()
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
+		log.Printf("Request: %s %s, Origin: %s, Cookie: %s",
+			c.Request.Method, c.Request.URL, c.Request.Header.Get("Origin"), c.Request.Header.Get("Cookie"))
 
 		c.Next()
 

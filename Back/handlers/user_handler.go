@@ -218,6 +218,7 @@ func Register(c *gin.Context) {
 }
 
 
+
 func Login(c *gin.Context) {
     start := time.Now()
     log.Println("Начало обработки запроса на вход")
@@ -245,7 +246,6 @@ func Login(c *gin.Context) {
         return
     }
 
-    // Проверка капчи, если требуется
     if user.LoginAttempts >= 3 {
         if req.CaptchaToken == "" {
             log.Printf("Требуется токен CAPTCHA для %s", req.Identifier)
@@ -288,14 +288,12 @@ func Login(c *gin.Context) {
         return
     }
 
-    // Проверка подтверждения email
     if !user.IsVerified {
         log.Printf("Попытка входа с неподтвержденным email: %s", user.Email)
         c.JSON(http.StatusUnauthorized, gin.H{"error": "EMAIL_NOT_VERIFIED"})
         return
     }
 
-    // Успешный вход: сбрасываем попытки и блокировку
     user.LoginAttempts = 0
     user.LockUntil = nil
     if err := database.DB.Save(&user).Error; err != nil {
@@ -311,7 +309,6 @@ func Login(c *gin.Context) {
         return
     }
 
-    // Установка куки
     domain := ""
     if os.Getenv("ENV") == "production" {
         domain = "testiki-33ur.onrender.com"
@@ -322,9 +319,9 @@ func Login(c *gin.Context) {
         Path:     "/",
         Domain:   domain,
         MaxAge:   24 * 3600,
-        Secure:   os.Getenv("ENV") == "production", // true на продакшене
+        Secure:   os.Getenv("ENV") == "production",
         HttpOnly: true,
-        SameSite: http.SameSiteNoneMode, // Для кросс-доменных запросов
+        SameSite: http.SameSiteNoneMode,
     })
 
     duration := time.Since(start).Seconds()

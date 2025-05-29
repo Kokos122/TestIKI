@@ -36,7 +36,7 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	if secret == "" {
 		return nil, errors.New("JWT_SECRET not configured")
 	}
-
+	
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
